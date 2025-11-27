@@ -1,0 +1,30 @@
+{
+  "name": "tual-backend",
+  "version": "1.0.0",
+  "description": "Backend de TUAL - Plataforma modular empresarial",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "keywords": [
+    "tual",
+    "backend",
+    "express",
+    "postgresql"
+  ],
+  "author": "Arnol Garzon",
+  "license": "MIT",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
+}
