@@ -1,10 +1,17 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import './index.css'
-import App from './App.jsx'
+import React from "react";
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import { BrowserRouter } from "react-router-dom"; // ✅ Router para navegación
+import App from "./App.jsx";
+import "./index.css"; // ✅ TailwindCSS y estilos globales
 
-createRoot(document.getElementById('root')).render(
+// Punto de entrada principal
+const rootElement = document.getElementById("root");
+
+createRoot(rootElement).render(
   <StrictMode>
-    <App />
-  </StrictMode>,
-)
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </StrictMode>
+);

@@ -17,4 +17,4 @@ Su objetivo es ofrecer una plataforma modular y adaptable para la gestión de em
 ---
 ## 👤 Autor
 
-**[Arnol Garzon]**
+**Arnol Garzon 2025**

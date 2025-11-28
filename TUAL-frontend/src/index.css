@@ -1,3 +1,20 @@
+/* src/index.css */
+
+/* --- RESET GLOBAL PARA min-h-screen PERFECTO --- */
+html, body {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* El elemento root de React también debe tener el 100% de altura */
+#root {
+  min-height: 100vh;
+  display: flex; /* Aseguramos que el contenedor de la app tome toda la altura */
+  flex-direction: column;
+}
+
+/* El resto de tus imports de Tailwind */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
