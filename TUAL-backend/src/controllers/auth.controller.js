@@ -3,19 +3,21 @@
 import { pool } from "../config/db.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { validationResult } from "express-validator"; // 🛑 NUEVO: Para manejar la validación de express-validator
+import { validationResult } from "express-validator"; 
 
-// ----------------------------------------------------
-// 1. FUNCIÓN DE REGISTRO (SOLUCIONA EL ERROR DE RUTA)
-// ----------------------------------------------------
+// 🛑 MEJORA DE SEGURIDAD: Definir la fuerza del hash en una constante de archivo
+const saltRounds = 10; 
+
+// =========================================================================
+// 1. REGISTRO (REGISTER)
+// =========================================================================
 
 export const register = async (req, res) => {
-    // 1. Capturar y manejar errores de validación del middleware (express-validator)
+    // 1. Capturar y manejar errores de validación del middleware
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-        // Devolver un error 400 (Bad Request) con detalles de la validación
         return res.status(400).json({ 
-            error: "Error de validación",
+            error: "Error de validación de datos.",
             details: errors.array() 
         });
     }
@@ -23,93 +25,31 @@ export const register = async (req, res) => {
     // El frontend nos envía 'nombre' (nombreEmpresa), 'email' y 'password'
     const { nombre, email, password } = req.body;
     
-    // 🛑 MEJORA DE SEGURIDAD: Definir la fuerza del hash
-    const saltRounds = 10; 
-
     try {
         // 2. Verificar si el usuario/email ya existe
         const existingUser = await pool.query("SELECT email FROM usuarios WHERE email = $1", [email]);
         if (existingUser.rows.length > 0) {
-            // Error 409 (Conflict) para indicar que el recurso ya existe
+            // Usar 409 (Conflict) para indicar que el recurso ya existe
             return res.status(409).json({ error: "Este correo electrónico ya está registrado." });
         }
 
-        // 3. Hashear la contraseña antes de guardarla
+        // 3. Hashear la contraseña
         const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-        // 4. Inserción en la base de datos (Asumo que el rol por defecto es 'user' o 'admin')
+        // 4. Inserción en la base de datos (Rol por defecto: 'admin_empresa')
         const result = await pool.query(
             "INSERT INTO usuarios (nombre, email, password, rol) VALUES ($1, $2, $3, $4) RETURNING id, nombre, email, rol",
-            [nombre, email, hashedPassword, 'admin_empresa'] // Asumo un rol inicial para los negocios
+            [nombre, email, hashedPassword, 'admin_empresa'] 
         );
         
         const nuevoUsuario = result.rows[0];
 
-        // 5. Generar token de sesión inmediato (opcional, pero buena UX)
-        const token = jwt.sign(
-            { id: nuevoUsuario.id, email: nuevoUsuario.email, rol: nuevoUsuario.rol },
-            process.env.JWT_SECRET,
-            { expiresIn: "1h" }
-        );
-
-        // Envía el token y los datos del nuevo usuario
-        res.status(201).json({ 
-            message: "Registro exitoso.", 
-            token, 
-            usuario: {
-                id: nuevoUsuario.id,
-                nombre: nuevoUsuario.nombre,
-                email: nuevoUsuario.email,
-                rol: nuevoUsuario.rol
-            }
-        });
-        
-    } catch (err) {
-        console.error("Error en registro:", err.message);
-        res.status(500).json({ error: "Error interno al registrar el usuario." });
-    }
-};
-
-
-// ----------------------------------------------------
-// 2. FUNCIÓN DE LOGIN (Mejoras menores)
-// ----------------------------------------------------
-
-export const login = async (req, res) => {
-    // 1. Capturar errores de validación del middleware
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ 
-            error: "Datos de login incompletos.",
-            details: errors.array() 
-        });
-    }
-    
-    const { email, password } = req.body;
-    console.log(email, password)
-    console.log("Intentando login con:", email);
-
-    try {
-        const result = await pool.query("SELECT * FROM usuarios WHERE email = $1", [email]);
-        const usuario = result.rows[0];
-
-        if (!usuario) {
-            // 🛑 MEJORA UX: Mensaje genérico para no dar pistas al atacante
-            return res.status(401).json({ error: "Credenciales inválidas." });
-        }
-
-        const validPassword = await bcrypt.compare(password, usuario.password);
-        if (!validPassword) {
-            // 🛑 MEJORA UX: Mensaje genérico para no dar pistas al atacante
-            return res.status(401).json({ error: "Credenciales inválidas." });
-        }
-
-        // 🛑 MEJORA: Definir qué datos va en el token (NO la contraseña)
+        // 5. Generar token de sesión
         const tokenPayload = { 
-            id: usuario.id, 
-            email: usuario.email, 
-            rol: usuario.rol,
-            nombre: usuario.nombre // Añadir el nombre al payload del token
+            id: nuevoUsuario.id, 
+            email: nuevoUsuario.email, 
+            rol: nuevoUsuario.rol,
+            nombre: nuevoUsuario.nombre // Añadido para mejor consistencia con el login
         };
         
         const token = jwt.sign(
@@ -118,17 +58,128 @@ export const login = async (req, res) => {
             { expiresIn: "1h" }
         );
 
-        // 🛑 MEJORA: Solo devolver datos limpios del usuario al frontend
-        const cleanedUser = {
-            id: usuario.id,
-            nombre: usuario.nombre,
-            email: usuario.email,
+        // Envía el token y los datos limpios del nuevo usuario
+        res.status(201).json({ 
+            message: "Registro exitoso.", 
+            token, 
+            usuario: nuevoUsuario // nuevoUsuario ya tiene los campos limpios gracias al RETURNING
+        });
+        
+    } catch (err) {
+        console.error("Error en registro:", err.message);
+        res.status(500).json({ error: "Error interno al registrar el usuario." });
+    }
+};
+
+// =========================================================================
+// 2. INICIO DE SESIÓN (LOGIN)
+// =========================================================================
+
+export const login = async (req, res) => {
+    // 1. Capturar errores de validación del middleware
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ 
+            error: "Datos de login incompletos o incorrectos.", // Mensaje más genérico
+            details: errors.array() 
+        });
+    }
+    
+    const { email, password } = req.body;
+    
+    // 🛑 MEJORA: Eliminado console.log(email, password) por seguridad.
+    // console.log("Intentando login con:", email); // Esto es solo para debug, se puede mantener
+
+    try {
+        // 2. Buscar al usuario
+        const result = await pool.query("SELECT * FROM usuarios WHERE email = $1", [email]);
+        const usuario = result.rows[0];
+
+        if (!usuario) {
+            // Credenciales inválidas (usuario no existe)
+            return res.status(401).json({ error: "Credenciales inválidas." });
+        }
+
+        // 3. Comparar contraseñas
+        const validPassword = await bcrypt.compare(password, usuario.password);
+        if (!validPassword) {
+            // Contraseña incorrecta
+            return res.status(401).json({ error: "Credenciales inválidas." });
+        }
+
+        // 4. Generar el payload del token con datos necesarios para el frontend/middleware
+        const tokenPayload = { 
+            id: usuario.id, 
+            email: usuario.email, 
             rol: usuario.rol,
+            nombre: usuario.nombre 
         };
+        
+        const token = jwt.sign(
+            tokenPayload,
+            process.env.JWT_SECRET,
+            { expiresIn: "1h" }
+        );
+
+        // 5. Limpiar datos del usuario antes de enviar (Excluir la contraseña hasheada)
+        const { password: _, ...cleanedUser } = usuario;
 
         res.json({ token, usuario: cleanedUser });
+        
     } catch (err) {
         console.error("Error en login:", err.message);
-        res.status(500).json({ error: "Error interno en login" });
+        res.status(500).json({ error: "Error interno en login." });
+    }
+};
+
+
+// =========================================================================
+// 3. GESTIÓN DE USUARIOS (SUPER ADMIN)
+// =========================================================================
+
+// Función para obtener todos los usuarios registrados
+// Protegida por el middleware 'esSuperAdmin' en el archivo de rutas.
+export const getUsers = async (req, res) => {
+    try {
+        const result = await pool.query( 
+            // 🛑 Excluimos la columna 'password' por seguridad
+            "SELECT id, nombre, email, rol FROM usuarios ORDER BY id ASC"
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error("Error al obtener usuarios:", err.message);
+        res.status(500).json({ error: "Error interno al obtener la lista de usuarios." });
+    }
+};
+
+// 🛑 MEJORA DE FUTURO: Cambiar el rol de un usuario (Acceso Super Admin)
+export const updateRole = async (req, res) => {
+    const { userId } = req.params;
+    const { newRole } = req.body;
+
+    // 🛑 Validación: Asegurar que el rol es uno permitido para evitar inyecciones
+    const allowedRoles = ['admin_empresa', 'empleado', 'super_usuario'];
+    if (!allowedRoles.includes(newRole)) {
+        return res.status(400).json({ error: "Rol no válido." });
+    }
+
+    try {
+        const result = await pool.query(
+            "UPDATE usuarios SET rol = $1 WHERE id = $2 RETURNING id, nombre, email, rol",
+            [newRole, userId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: "Usuario no encontrado." });
+        }
+
+        res.json({ 
+            message: `Rol del usuario ${userId} actualizado a ${newRole}.`, 
+            usuario: result.rows[0] 
+        });
+
+    } catch (err) {
+        console.error("Error al actualizar rol:", err.message);
+        res.status(500).json({ error: "Error interno al actualizar el rol." });
     }
 };
