@@ -1,12 +1,14 @@
-// src/routes/usuarios.routes.js
-
+// ✅ 1. Importar express
 import express from "express";
-import {
-    listAllUsers,
-    getUsuarioById,
-    createUser,
-    updateUsuario,
-    deleteUsuario
+
+// ✅ 2. Importar los controladores de usuario
+// ASUNCIÓN: Las funciones CRUD están en `usuarios.controller.js`
+import { 
+    listAllUsers, 
+    getUsuarioById, 
+    createUser, 
+    updateUsuario, 
+    deleteUsuario 
 } from '../controllers/usuarios.controller.js';
 
 // Importar Middlewares de Seguridad y Autorización
@@ -15,59 +17,26 @@ import { authorizeRoles } from '../middleware/role.middleware.js';
 
 const router = express.Router();
 
-// Roles permitidos para la mayoría de las operaciones de administración de usuarios
-// 🛑 NOTA: El rol 'super_usuario' DEBE coincidir con el valor de la base de datos
-const ADMIN_ROLES = ['Superadmin']; // <- Usamos 'Superadmin' como hemos acordado en otros archivos
+// Roles permitidos para las operaciones de administración de usuarios
+const SUPER_ADMIN_ONLY = ['superadmin'];
 
 // -------------------------------------------------------------------
-// 1. LISTAR TODOS LOS USUARIOS (READ ALL)
+// DEFINICIÓN DE RUTAS CRUD PARA USUARIOS
 // -------------------------------------------------------------------
-router.get(
-    "/",
-    verifyToken,
-    authorizeRoles(ADMIN_ROLES),
-    listAllUsers
-);
 
-// -------------------------------------------------------------------
-// 2. CREAR NUEVO USUARIO (CREATE)
-// -------------------------------------------------------------------
-router.post(
-    "/",
-    verifyToken,
-    authorizeRoles(ADMIN_ROLES),
-    createUser
-);
+// GET /api/usuarios -> Listar todos los usuarios
+router.get("/", [verifyToken, authorizeRoles(SUPER_ADMIN_ONLY)], listAllUsers);
 
-// -------------------------------------------------------------------
-// 3. OBTENER DETALLE (READ ONE)
-// -------------------------------------------------------------------
-router.get(
-    "/:id",
-    verifyToken,
-    authorizeRoles(ADMIN_ROLES),
-    getUsuarioById // 🛑 CORREGIDO: Antes era 'getUserById'
-);
+// POST /api/usuarios -> Crear un nuevo usuario
+router.post("/", [verifyToken, authorizeRoles(SUPER_ADMIN_ONLY)], createUser);
 
-// -------------------------------------------------------------------
-// 3. ACTUALIZAR USUARIO (UPDATE)
-// -------------------------------------------------------------------
-router.put(
-    "/:id",
-    verifyToken,
-    authorizeRoles(ADMIN_ROLES),
-    updateUsuario // 🛑 CORREGIDO: Antes era 'updateUser'
-);
+// GET /api/usuarios/:id -> Obtener un usuario por ID
+router.get("/:id", [verifyToken, authorizeRoles(SUPER_ADMIN_ONLY)], getUsuarioById);
 
-// -------------------------------------------------------------------
-// 4. ELIMINAR USUARIO (DELETE)
-// -------------------------------------------------------------------
-router.delete(
-    "/:id",
-    verifyToken,
-    authorizeRoles(ADMIN_ROLES),
-    deleteUsuario // 🛑 CORREGIDO: Antes era 'deleteUser'
-);
+// PUT /api/usuarios/:id -> Actualizar un usuario por ID
+router.put("/:id", [verifyToken, authorizeRoles(SUPER_ADMIN_ONLY)], updateUsuario);
 
+// DELETE /api/usuarios/:id -> Eliminar un usuario por ID
+router.delete("/:id", [verifyToken, authorizeRoles(SUPER_ADMIN_ONLY)], deleteUsuario);
 
 export default router;

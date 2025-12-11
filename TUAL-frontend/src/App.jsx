@@ -15,8 +15,8 @@ import RegisterForm from "./components/RegisterForm";
 // -------------------------------------------------------------------
 // 2. COMPONENTES DEL ÁREA PRIVADA (Módulos)
 // -------------------------------------------------------------------
-// 🛑 Importación corregida basada en la estructura de carpetas: /src/components/
-import DashboardLayout from "./components/DashboardLayout"; 
+// ✅ Importación corregida para apuntar a la carpeta /layouts
+import DashboardLayout from "./layouts/DashboardLayout"; 
 import Dashboard from "./components/Dashboard";
 import EmpresaList from "./components/EmpresaList";
 import UserManagement from "./components/UserManagement";
@@ -41,7 +41,7 @@ const RoleProtected = ({ children, allowedRoles }) => {
 
     // Si no tiene el rol permitido o no está autenticado, redirige al Dashboard principal
     // (App.jsx ya maneja la redirección a /login si no hay usuario, esto maneja el permiso de rol)
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/dashboard" state={{ error: "Acceso no autorizado" }} replace />;
 };
 
 
@@ -57,6 +57,13 @@ function App() {
         // Redirige al dashboard después de un login exitoso
         navigate("/dashboard", { replace: true });
     };
+
+    // ✅ Función de Logout: Llama al setter para limpiar el estado y redirige a /login
+    const handleLogout = () => {
+        // El hook useAuth debería tener una función para limpiar el token y el usuario
+        setAuthenticatedUser(null); 
+        navigate("/login", { replace: true });
+    }
 
     // -------------------------------------------------------------------
     // Pantalla de Carga Inicial (Se muestra mientras isLoading es true)
@@ -99,7 +106,7 @@ function App() {
             <Route
                 path="/dashboard"
                 // El layout se renderiza si el usuario existe. Si no, redirige a /login.
-                element={usuario ? <DashboardLayout /> : <Navigate to="/login" replace />}
+                element={usuario ? <DashboardLayout onLogout={handleLogout} /> : <Navigate to="/login" replace />}
             >
                 {/* 2.1 Ruta de Inicio (Ruta index se inyecta en el <Outlet />) */}
                 <Route index element={<Dashboard />} />
@@ -109,7 +116,7 @@ function App() {
                 <Route
                     path="empresas"
                     element={
-                        <RoleProtected allowedRoles={['super_usuario', 'admin_empresa']}>
+                        <RoleProtected allowedRoles={['superadmin', 'admin_empresa']}>
                             <EmpresaList />
                         </RoleProtected>
                     }
@@ -118,7 +125,7 @@ function App() {
                 <Route
                     path="empresas/crear"
                     element={
-                        <RoleProtected allowedRoles={['super_usuario']}>
+                        <RoleProtected allowedRoles={['superadmin']}>
                             <EmpresaForm isEdit={false} />
                         </RoleProtected>
                     }
@@ -127,7 +134,7 @@ function App() {
                 <Route
                     path="empresas/:id"
                     element={
-                        <RoleProtected allowedRoles={['super_usuario', 'admin_empresa']}>
+                        <RoleProtected allowedRoles={['superadmin', 'admin_empresa']}>
                             <EmpresaForm isEdit={true} />
                         </RoleProtected>
                     }
@@ -138,7 +145,7 @@ function App() {
                 <Route
                     path="usuarios"
                     element={
-                        <RoleProtected allowedRoles={['super_usuario']}>
+                        <RoleProtected allowedRoles={['superadmin']}>
                             <UserManagement />
                         </RoleProtected>
                     }
@@ -147,7 +154,7 @@ function App() {
                 <Route
                     path="usuarios/crear"
                     element={
-                        <RoleProtected allowedRoles={['super_usuario']}>
+                        <RoleProtected allowedRoles={['superadmin']}>
                             <UserForm isEdit={false} />
                         </RoleProtected>
                     }
@@ -156,7 +163,7 @@ function App() {
                 <Route
                     path="usuarios/:id"
                     element={
-                        <RoleProtected allowedRoles={['super_usuario']}>
+                        <RoleProtected allowedRoles={['superadmin']}>
                             <UserForm isEdit={true} />
                         </RoleProtected>
                     }

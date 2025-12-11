@@ -8,7 +8,7 @@
 export const authorizeRoles = (allowedRoles) => {
     return (req, res, next) => {
         // 🛑 CRÍTICO: El rol del usuario se debe obtener del token decodificado
-        // que fue adjuntado por auth.middleware.js a req.usuario.
+        // que fue adjuntado por el middleware `verifyToken` a `req.usuario`.
         const userRole = req.usuario?.rol; 
 
         if (!userRole) {
@@ -18,8 +18,13 @@ export const authorizeRoles = (allowedRoles) => {
             });
         }
         
-        // Comprueba si el rol del usuario está incluido en la lista de roles permitidos.
-        if (!allowedRoles.includes(userRole)) {
+        // ✅ MEJORA: Comprobación insensible a mayúsculas y minúsculas.
+        // Convierte el rol del usuario a minúsculas y la lista de roles permitidos también.
+        const hasPermission = allowedRoles
+            .map(role => role.toLowerCase())
+            .includes(userRole.toLowerCase());
+
+        if (!hasPermission) {
             console.log(`Intento de acceso denegado. Rol: ${userRole}, Rutas permitidas: ${allowedRoles.join(', ')}`);
             return res.status(403).json({ 
                 message: "Permiso denegado. No tiene el rol necesario para acceder a este recurso." 

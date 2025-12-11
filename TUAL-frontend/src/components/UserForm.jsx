@@ -8,7 +8,7 @@ import { Save, Loader2, ArrowLeft, AlertTriangle } from 'lucide-react';
 
 // Roles disponibles en el sistema (definidos por el Backend)
 const AVAILABLE_ROLES = [
-    { value: 'Superadmin', label: 'Super Administrador' }, // Usamos 'Superadmin' ya que ese es el valor en la DB
+    { value: 'superadmin', label: 'Super Administrador' }, // ✅ Unificado a 'superadmin'
     { value: 'admin_empresa', label: 'Administrador de Empresa' },
     { value: 'empleado', label: 'Empleado' }
 ];
@@ -135,6 +135,23 @@ const UserForm = ({ isEdit }) => {
     
     if (loadingState.data) {
         return <div className="p-6 text-center text-blue-600 flex items-center justify-center"><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Cargando datos...</div>;
+    }
+
+    // ✅ MEJORA: Manejo explícito de error en la carga inicial para evitar la página en blanco.
+    if (error && !formData.nombre) { // Si hay un error y no se cargaron datos
+        return (
+            <div className="max-w-3xl mx-auto p-8 bg-white shadow-xl rounded-lg text-center">
+                 <AlertTriangle className="w-12 h-12 mx-auto text-red-500 mb-4" />
+                 <h2 className="text-2xl font-bold text-gray-800 mb-2">Error al Cargar</h2>
+                 <p className="text-red-700 bg-red-100 p-3 rounded-md">{error}</p>
+                 <button
+                    onClick={() => navigate('/dashboard/usuarios')}
+                    className="mt-6 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+                >
+                    <ArrowLeft className="w-5 h-5 mr-2" /> Volver al Listado
+                </button>
+            </div>
+        );
     }
 
     return (

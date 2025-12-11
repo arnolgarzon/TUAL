@@ -158,8 +158,8 @@ export const updateRole = async (req, res) => {
     const { newRole } = req.body;
 
     // 🛑 Validación: Asegurar que el rol es uno permitido para evitar inyecciones
-    const allowedRoles = ['admin_empresa', 'empleado', 'super_usuario'];
-    if (!allowedRoles.includes(newRole)) {
+    const validRoles = ['superadmin', 'admin_empresa', 'empleado'];
+    if (!validRoles.includes(newRole)) {
         return res.status(400).json({ error: "Rol no válido." });
     }
 

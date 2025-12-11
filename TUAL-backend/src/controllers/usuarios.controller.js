@@ -15,7 +15,6 @@ const SAFE_USER_FIELDS = `
     u.email, 
     u.rol, 
     u.empresa_id,
-    u.created_at,
     e.nombre AS nombre_empresa
 `;
 // JOIN con empresas para facilitar el frontend
@@ -96,6 +95,11 @@ export const createUser = async (req, res) => {
         const emailCheck = await pool.query("SELECT id FROM usuarios WHERE email = $1", [email]);
         if (emailCheck.rows.length > 0) {
             return res.status(409).json({ message: "El email ya está registrado." });
+        }
+
+        // 🛑 ROBUSTEZ 3: Validar lógica de negocio (rol vs empresa)
+        if ((rol === 'admin_empresa' || rol === 'empleado') && !empresa_id) {
+            return res.status(400).json({ message: "Se requiere un ID de empresa para los roles de 'admin_empresa' o 'empleado'." });
         }
 
         // 🛑 SEGURIDAD: Hashing de la contraseña antes de guardar
