@@ -1,7 +1,7 @@
 import express from "express";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import { authorizeRoles } from "../middleware/role.middleware.js";
-import { getEmpresas, createEmpresa, updateEmpresa, deleteEmpresa } from "../controllers/empresas.controller.js";
+import { getEmpresas, getEmpresaById, createEmpresa, updateEmpresa, deleteEmpresa } from "../controllers/empresas.controller.js";
 
 const router = express.Router();
 
@@ -13,6 +13,8 @@ const SUPER_ADMIN_ONLY = ['superadmin'];
 router.get('/', [verifyToken, authorizeRoles(ADMIN_ROLES)], getEmpresas);
 
 router.post('/', [verifyToken, authorizeRoles(SUPER_ADMIN_ONLY)], createEmpresa);
+
+router.get('/:id', [verifyToken, authorizeRoles(ADMIN_ROLES)], getEmpresaById);
 
 router.put('/:id', [verifyToken, authorizeRoles(ADMIN_ROLES)], updateEmpresa);
 
