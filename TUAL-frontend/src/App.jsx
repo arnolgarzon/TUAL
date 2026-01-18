@@ -1,183 +1,214 @@
-// src/App.jsx
-
 import React from "react";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
-// Hook de Autenticación
 import { useAuth } from "./hooks/useAuth";
 
-// -------------------------------------------------------------------
-// 1. COMPONENTES PÚBLICOS
-// -------------------------------------------------------------------
+/* ------------------------------
+   COMPONENTES PÚBLICOS
+--------------------------------*/
 import Home from "./components/Home";
 import LoginForm from "./components/LoginForm";
+import RegisterEmpresa from "./components/RegisterEmpresa";
+
+/* Legacy / interno */
 import RegisterForm from "./components/RegisterForm";
 
-// -------------------------------------------------------------------
-// 2. COMPONENTES DEL ÁREA PRIVADA (Módulos)
-// -------------------------------------------------------------------
-// ✅ Importación corregida para apuntar a la carpeta /layouts
-import DashboardLayout from "./layouts/DashboardLayout"; 
+/* ------------------------------
+   LAYOUT PRIVADO
+--------------------------------*/
+import DashboardLayout from "./layouts/DashboardLayout";
+
+/* ------------------------------
+   MÓDULOS PRIVADOS
+--------------------------------*/
 import Dashboard from "./components/Dashboard";
+
+/* Empresas */
 import EmpresaList from "./components/EmpresaList";
-import UserManagement from "./components/UserManagement";
 import EmpresaForm from "./components/EmpresaForm";
-// 🛑 NUEVO: Componente para Crear/Editar usuarios (asumiendo su creación futura)
-import UserForm from "./components/UserForm"; 
 
+/* Usuarios */
+import UserManagement from "./components/UserManagement";
+import UserForm from "./components/UserForm";
 
-// -------------------------------------------------------------------
-// 3. COMPONENTE DE UTILIDAD: Protección de Rutas por Rol
-// -------------------------------------------------------------------
+/* Clientes */
+import ClienteList from "./components/ClienteList";
+import ClienteForm from "./components/ClienteForm";
+
+/* ------------------------------
+   PROTECCIÓN POR ROL
+--------------------------------*/
 const RoleProtected = ({ children, allowedRoles }) => {
-    const { usuario, isLoading } = useAuth();
+  const { usuario, isLoading } = useAuth();
 
-    // Si el usuario aún está cargando, bloquea la renderización (muestra spinner en App)
-    if (isLoading) return null;
+  if (isLoading) return null;
 
-    // Si el usuario existe y su rol está en la lista de permitidos, renderiza el componente
-    if (usuario && allowedRoles.includes(usuario.rol)) {
-        return children;
-    }
+  if (usuario && allowedRoles.includes(usuario.rol)) {
+    return children;
+  }
 
-    // Si no tiene el rol permitido o no está autenticado, redirige al Dashboard principal
-    // (App.jsx ya maneja la redirección a /login si no hay usuario, esto maneja el permiso de rol)
-    return <Navigate to="/dashboard" state={{ error: "Acceso no autorizado" }} replace />;
+  return <Navigate to="/dashboard" replace />;
 };
 
-
 function App() {
-    // 🛑 Desestructuración de useAuth. Incluye setAuthenticatedUser, usuario e isLoading
-    const { usuario, isLoading, setAuthenticatedUser } = useAuth();
-    const navigate = useNavigate();
+  const { usuario, isLoading, setAuthenticatedUser } = useAuth();
+  const navigate = useNavigate();
 
-    // Función de Login: Llama al setter del hook para guardar el estado y el token
-    const handleLogin = (responseFromBackend) => {
-        // responseFromBackend = { token: '...', usuario: { ... } }
-        setAuthenticatedUser(responseFromBackend);
-        // Redirige al dashboard después de un login exitoso
-        navigate("/dashboard", { replace: true });
-    };
+  /* ------------------------------
+     LOGIN
+  --------------------------------*/
+  const handleLogin = (dataFromLogin) => {
+    const normalizedData = dataFromLogin?.usuario
+      ? dataFromLogin
+      : {
+          usuario: dataFromLogin,
+          token: localStorage.getItem("token"),
+        };
 
-    // ✅ Función de Logout: Llama al setter para limpiar el estado y redirige a /login
-    const handleLogout = () => {
-        // El hook useAuth debería tener una función para limpiar el token y el usuario
-        setAuthenticatedUser(null); 
-        navigate("/login", { replace: true });
-    }
+    setAuthenticatedUser(normalizedData);
+    navigate("/dashboard", { replace: true });
+  };
 
-    // -------------------------------------------------------------------
-    // Pantalla de Carga Inicial (Se muestra mientras isLoading es true)
-    // -------------------------------------------------------------------
-    if (isLoading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-                <div className="flex flex-col items-center p-6 bg-white rounded-lg shadow-xl">
-                    <svg className="animate-spin h-8 w-8 text-blue-600 mb-3" viewBox="0 0 24 24">
-                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"></circle>
-                        <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" className="opacity-75"></path>
-                    </svg>
-                    <h1 className="text-gray-800 text-lg font-medium">Verificando sesión...</h1>
-                </div>
-            </div>
-        );
-    }
+  /* ------------------------------
+     LOGOUT
+  --------------------------------*/
+  const handleLogout = () => {
+    setAuthenticatedUser(null);
+    navigate("/login", { replace: true });
+  };
 
-    // -------------------------------------------------------------------
-    // 4. ESTRUCTURA PRINCIPAL DE RUTAS
-    // -------------------------------------------------------------------
+  /* ------------------------------
+     LOADING GLOBAL
+  --------------------------------*/
+  if (isLoading) {
     return (
-        <Routes>
-
-            {/* 1. RUTAS PÚBLICAS */}
-            <Route
-                path="/"
-                element={usuario ? <Navigate to="/dashboard" replace /> : <Home />}
-            />
-            <Route
-                path="/login"
-                element={usuario ? <Navigate to="/dashboard" replace /> : <LoginForm onLogin={handleLogin} />}
-            />
-            <Route
-                path="/register"
-                element={usuario ? <Navigate to="/dashboard" replace /> : <RegisterForm />}
-            />
-
-            {/* 2. RUTAS PRIVADAS (PADRE DASHBOARD) */}
-            <Route
-                path="/dashboard"
-                // El layout se renderiza si el usuario existe. Si no, redirige a /login.
-                element={usuario ? <DashboardLayout onLogout={handleLogout} /> : <Navigate to="/login" replace />}
-            >
-                {/* 2.1 Ruta de Inicio (Ruta index se inyecta en el <Outlet />) */}
-                <Route index element={<Dashboard />} />
-
-                {/* 2.2 CRUD DE EMPRESAS */}
-                {/* Lista de Empresas (Super Admin y Admin Empresa) */}
-                <Route
-                    path="empresas"
-                    element={
-                        <RoleProtected allowedRoles={['superadmin', 'admin_empresa']}>
-                            <EmpresaList />
-                        </RoleProtected>
-                    }
-                />
-                {/* Crear Empresa (Solo Super Admin) */}
-                <Route
-                    path="empresas/crear"
-                    element={
-                        <RoleProtected allowedRoles={['superadmin']}>
-                            <EmpresaForm isEdit={false} />
-                        </RoleProtected>
-                    }
-                />
-                {/* Editar/Ver Detalle de Empresa (Super Admin y Admin Empresa) */}
-                <Route
-                    path="empresas/:id"
-                    element={
-                        <RoleProtected allowedRoles={['superadmin', 'admin_empresa']}>
-                            <EmpresaForm isEdit={true} />
-                        </RoleProtected>
-                    }
-                />
-
-                {/* 2.3 CRUD DE USUARIOS 🛑 RUTAS COMPLETADAS */}
-                {/* Lista de Usuarios (Solo Super Admin) */}
-                <Route
-                    path="usuarios"
-                    element={
-                        <RoleProtected allowedRoles={['superadmin']}>
-                            <UserManagement />
-                        </RoleProtected>
-                    }
-                />
-                {/* 🛑 NUEVO: Crear Usuario (Solo Super Admin) */}
-                <Route
-                    path="usuarios/crear"
-                    element={
-                        <RoleProtected allowedRoles={['superadmin']}>
-                            <UserForm isEdit={false} />
-                        </RoleProtected>
-                    }
-                />
-                {/* 🛑 NUEVO: Editar/Ver Detalle de Usuario (Solo Super Admin) */}
-                <Route
-                    path="usuarios/:id"
-                    element={
-                        <RoleProtected allowedRoles={['superadmin']}>
-                            <UserForm isEdit={true} />
-                        </RoleProtected>
-                    }
-                />
-                
-                {/* 2.4 OTROS MÓDULOS */}
-                <Route path="configuracion" element={<div>Configuración de la App (En desarrollo)</div>} />
-
-            </Route>
-
-            {/* 3. FALLBACK: Redirige al inicio si la ruta no existe */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+      <div className="min-h-screen flex items-center justify-center">
+        <p>Verificando sesión…</p>
+      </div>
     );
+  }
+
+  /* ------------------------------
+     RUTAS
+  --------------------------------*/
+  return (
+    <Routes>
+      {/* ---------- PÚBLICAS ---------- */}
+      <Route
+        path="/"
+        element={usuario ? <Navigate to="/dashboard" replace /> : <Home />}
+      />
+
+      <Route
+        path="/login"
+        element={
+          usuario ? (
+            <Navigate to="/dashboard" replace />
+          ) : (
+            <LoginForm onLogin={handleLogin} />
+          )
+        }
+      />
+
+      {/* REGISTRO DE EMPRESA */}
+      <Route
+        path="/crear-empresa"
+        element={
+          usuario ? <Navigate to="/dashboard" replace /> : <RegisterEmpresa />
+        }
+      />
+
+      {/* LEGACY */}
+      <Route
+        path="/register"
+        element={
+          usuario ? <Navigate to="/dashboard" replace /> : <RegisterForm />
+        }
+      />
+
+      {/* ---------- PRIVADAS ---------- */}
+      <Route
+        path="/dashboard"
+        element={
+          usuario ? (
+            <DashboardLayout onLogout={handleLogout} />
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      >
+        <Route index element={<Dashboard />} />
+
+        {/* EMPRESAS */}
+        <Route
+          path="empresas"
+          element={
+            <RoleProtected allowedRoles={["superadmin"]}>
+              <EmpresaList />
+            </RoleProtected>
+          }
+        />
+
+        <Route
+          path="empresas/:id"
+          element={
+            <RoleProtected allowedRoles={["superadmin"]}>
+              <EmpresaForm isEdit />
+            </RoleProtected>
+          }
+        />
+
+        {/* USUARIOS */}
+        <Route
+          path="usuarios"
+          element={
+            <RoleProtected allowedRoles={["admin_empresa"]}>
+              <UserManagement />
+            </RoleProtected>
+          }
+        />
+
+        <Route
+          path="usuarios/crear"
+          element={
+            <RoleProtected allowedRoles={["admin_empresa"]}>
+              <UserForm />
+            </RoleProtected>
+          }
+        />
+
+        {/* CLIENTES */}
+        <Route
+          path="clientes"
+          element={
+            <RoleProtected allowedRoles={["admin_empresa", "empleado"]}>
+              <ClienteList />
+            </RoleProtected>
+          }
+        />
+
+        <Route
+          path="clientes/crear"
+          element={
+            <RoleProtected allowedRoles={["admin_empresa"]}>
+              <ClienteForm />
+            </RoleProtected>
+          }
+        />
+
+        <Route
+          path="clientes/:id"
+          element={
+            <RoleProtected allowedRoles={["admin_empresa"]}>
+              <ClienteForm />
+            </RoleProtected>
+          }
+        />
+      </Route>
+
+      {/* ---------- FALLBACK ---------- */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
 }
 
 export default App;

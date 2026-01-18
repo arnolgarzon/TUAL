@@ -1,89 +1,82 @@
 // index.js
-
 import express from "express";
 import cors from "cors";
-import router from "./src/routes/index.js";
-import dotenv from 'dotenv';
+import dotenv from "dotenv";
 
-// Cargar variables de entorno del archivo .env
+import publicRoutes from "./src/routes/public.routes.js";
+import authRoutes from "./src/routes/auth.routes.js";
+
+import clientesRoutes from "./src/routes/clientes.routes.js";
+import vehiculosRoutes from "./src/routes/vehiculos.routes.js";
+import ordenesRoutes from "./src/routes/ordenes.routes.js";
+import pagosRoutes from "./src/routes/pagos.routes.js";
+
+import { authMiddleware } from "./src/middleware/authMiddleware.js";
+
 dotenv.config();
 
 const app = express();
 
-// ----------------------------------------------------
-// 1. CONFIGURACIÓN DE MIDDLEWARES
-// ----------------------------------------------------
+/* ------------------------------------
+   CONFIG
+------------------------------------ */
+const PORT = process.env.PORT || 5000;
+const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
 
-// 1.1. CONFIGURACIÓN DE CORS (CRÍTICO para solucionar el Error de Red)
-// Es crucial especificar el origen de tu frontend para mayor seguridad.
-// ASUMIMOS que tu frontend corre en el puerto 3000.
-const allowedOrigins = [
-    process.env.CLIENT_URL || 'http://localhost:3000', // URL de tu frontend
-    // Agrega otras URLs si tu app tiene subdominios, etc.
-];
-
+/* ------------------------------------
+   MIDDLEWARES GLOBALES
+------------------------------------ */
 app.use(cors({
-    origin: function (origin, callback) {
-        // Permitir peticiones sin origen (como Postman o curl) y orígenes permitidos
-        if (!origin || allowedOrigins.includes(origin)) {
-            callback(null, true);
-        } else {
-            // Rechazar cualquier otro origen
-            callback(new Error('Acceso CORS no permitido por el servidor'));
-        }
-    },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], // Métodos permitidos
-    allowedHeaders: ['Content-Type', 'Authorization'], // Headers requeridos (Especialmente el token 'Authorization')
-    credentials: true // Permite que las cookies o headers de auth sean enviados
+  origin: CLIENT_URL,
+  credentials: true,
 }));
 
-
-// 1.2. Middleware para parsear JSON (Fundamental)
 app.use(express.json());
 
-// ----------------------------------------------------
-// 2. RUTAS
-// ----------------------------------------------------
+/* ------------------------------------
+   RUTAS PÚBLICAS
+------------------------------------ */
+app.use(express.json());
+app.use("/api/public", publicRoutes);
+app.use("/api/auth", authRoutes);
 
-// 2.1. Ruta base para la API
-app.use("/api", router); 
+/* ------------------------------------
+   RUTAS PROTEGIDAS (APP)
+------------------------------------ */
+app.use("/api/clientes", authMiddleware, clientesRoutes);
+app.use("/api/vehiculos", authMiddleware, vehiculosRoutes);
+app.use("/api/ordenes", authMiddleware, ordenesRoutes);
+app.use("/api/pagos", authMiddleware, pagosRoutes);
 
-
-// ----------------------------------------------------
-// 3. MANEJO DE ERRORES (ROBUSTEZ)
-// ----------------------------------------------------
-
-// Middleware para manejar rutas no encontradas (404)
-app.use((req, res, next) => {
-    res.status(404).json({ 
-        message: `Ruta no encontrada: ${req.method} ${req.originalUrl}` 
-    });
+/* ------------------------------------
+   HEALTHCHECK
+------------------------------------ */
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok", app: "TUAL backend" });
 });
 
-// Middleware de manejo de errores general (CAPTURA CUALQUIER ERROR)
+/* ------------------------------------
+   404
+------------------------------------ */
+app.use((req, res) => {
+  res.status(404).json({
+    message: `Ruta no encontrada: ${req.method} ${req.originalUrl}`,
+  });
+});
+
+/* ------------------------------------
+   MANEJO DE ERRORES
+------------------------------------ */
 app.use((err, req, res, next) => {
-    console.error(err.stack); // Muestra el error en la terminal del servidor
-    const statusCode = err.status || 500;
-    
-    // Si estamos en producción, no enviamos detalles sensibles del error
-    const message = process.env.NODE_ENV === 'production' && statusCode === 500
-        ? 'Error interno del servidor. Inténtalo de nuevo más tarde.'
-        : err.message || 'Error desconocido del servidor.';
-
-    res.status(statusCode).json({
-        error: message
-    });
+  console.error("🔥 Error:", err);
+  res.status(err.status || 500).json({
+    error: err.message || "Error interno del servidor",
+  });
 });
 
-
-// ----------------------------------------------------
-// 4. INICIO DEL SERVIDOR
-// ----------------------------------------------------
-
-// Usar el puerto de las variables de entorno o 5000 por defecto
-const PORT = process.env.PORT || 5000; 
-
+/* ------------------------------------
+   SERVER
+------------------------------------ */
 app.listen(PORT, () => {
-    console.log(`🚀 Servidor TUAL corriendo en http://localhost:${PORT}`);
-    console.log(`Cliente permitido: ${allowedOrigins[0]}`);
+  console.log(`🚀 TUAL backend corriendo en http://localhost:${PORT}`);
 });

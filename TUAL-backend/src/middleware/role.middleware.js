@@ -1,37 +1,55 @@
 // src/middlewares/role.middleware.js
 
 /**
- * Middleware para restringir el acceso basado en el rol del usuario.
- * @param {Array<string>} allowedRoles - Lista de roles que tienen permiso (ej: ['Superadmin', 'admin_empresa'])
- * @returns {Function} - Middleware de Express
+ * Middleware de autorización por rol
+ * @param {...string|string[]} allowedRoles
+ * Ejemplos válidos:
+ *  authorizeRoles("superadmin")
+ *  authorizeRoles("superadmin", "admin_empresa")
+ *  authorizeRoles(["superadmin", "admin_empresa"])
  */
-export const authorizeRoles = (allowedRoles) => {
-    return (req, res, next) => {
-        // 🛑 CRÍTICO: El rol del usuario se debe obtener del token decodificado
-        // que fue adjuntado por el middleware `verifyToken` a `req.usuario`.
-        const userRole = req.usuario?.rol; 
+export const authorizeRoles = (...allowedRoles) => {
+  // Soporta array o múltiples argumentos
+  const rolesPermitidos = Array.isArray(allowedRoles[0])
+    ? allowedRoles[0]
+    : allowedRoles;
 
-        if (!userRole) {
-            // Esto solo debería suceder si el auth.middleware falló o no se ejecutó.
-            return res.status(401).json({ 
-                message: "Acceso denegado. No se encontró información de rol en el token." 
-            });
-        }
-        
-        // ✅ MEJORA: Comprobación insensible a mayúsculas y minúsculas.
-        // Convierte el rol del usuario a minúsculas y la lista de roles permitidos también.
-        const hasPermission = allowedRoles
-            .map(role => role.toLowerCase())
-            .includes(userRole.toLowerCase());
+  // Normalizamos una sola vez
+  const normalizedRoles = rolesPermitidos.map(role =>
+    role.toLowerCase()
+  );
 
-        if (!hasPermission) {
-            console.log(`Intento de acceso denegado. Rol: ${userRole}, Rutas permitidas: ${allowedRoles.join(', ')}`);
-            return res.status(403).json({ 
-                message: "Permiso denegado. No tiene el rol necesario para acceder a este recurso." 
-            });
-        }
+  return (req, res, next) => {
+    // 🔐 El usuario debe venir del verifyToken
+    const usuario = req.usuario;
 
-        // Si el rol es válido, continúa con la ejecución de la ruta
-        next();
-    };
+    if (!usuario || !usuario.rol) {
+      return res.status(401).json({
+        message: "Acceso denegado. Usuario no autenticado correctamente.",
+      });
+    }
+
+    const userRole = usuario.rol.toLowerCase();
+
+    // 🔍 Validar rol
+    if (!normalizedRoles.includes(userRole)) {
+      console.warn(
+        `[AUTH] Acceso denegado | Rol: ${usuario.rol} | Permitidos: ${rolesPermitidos.join(", ")}`
+      );
+
+      return res.status(403).json({
+        message: "No tiene permisos para acceder a este recurso.",
+      });
+    }
+
+    /**
+     * 🧩 FUTURO:
+     * Aquí podremos validar:
+     * - empresa_id
+     * - permisos dinámicos
+     * - scopes
+     */
+
+    next();
+  };
 };
