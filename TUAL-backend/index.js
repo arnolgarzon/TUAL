@@ -10,6 +10,9 @@ import clientesRoutes from "./src/routes/clientes.routes.js";
 import vehiculosRoutes from "./src/routes/vehiculos.routes.js";
 import ordenesRoutes from "./src/routes/ordenes.routes.js";
 import pagosRoutes from "./src/routes/pagos.routes.js";
+import superadminRoutes from "./src/routes/superadmin.routes.js";
+
+// import empresasRoutes from "./src/routes/empresas.routes.js";
 
 import { authMiddleware } from "./src/middleware/authMiddleware.js";
 
@@ -47,6 +50,7 @@ app.use("/api/clientes", authMiddleware, clientesRoutes);
 app.use("/api/vehiculos", authMiddleware, vehiculosRoutes);
 app.use("/api/ordenes", authMiddleware, ordenesRoutes);
 app.use("/api/pagos", authMiddleware, pagosRoutes);
+// app.use("/api/empresas", authMiddleware, empresasRoutes);
 
 /* ------------------------------------
    HEALTHCHECK
@@ -54,6 +58,10 @@ app.use("/api/pagos", authMiddleware, pagosRoutes);
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", app: "TUAL backend" });
 });
+
+
+app.use("/api/superadmin", superadminRoutes);
+
 
 /* ------------------------------------
    404

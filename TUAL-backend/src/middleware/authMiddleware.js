@@ -4,20 +4,29 @@ import jwt from "jsonwebtoken";
 export const authMiddleware = (req, res, next) => {
   const authHeader = req.headers.authorization;
 
-  // Verificamos si viene el token
-  if (!authHeader) {
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({
       ok: false,
-      message: "Token no proporcionado",
+      message: "Token no proporcionado o formato inválido",
     });
   }
 
-  // Formato esperado: Bearer TOKEN
   const token = authHeader.split(" ")[1];
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // guardamos el usuario para el controlador
+
+    /**
+     * 🔐 CONTEXTO GLOBAL DE USUARIO
+     * Aquí vivirá TODO lo relacionado con identidad
+     */
+    req.user = {
+      id: decoded.id,
+      rol: decoded.rol,
+      nombre: decoded.nombre,
+      empresaId: decoded.empresaId ?? null, // preparado para multi-empresa
+    };
+
     next();
   } catch (error) {
     return res.status(401).json({
