@@ -3,17 +3,20 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 
+// 🌍 Rutas públicas y auth
 import publicRoutes from "./src/routes/public.routes.js";
 import authRoutes from "./src/routes/auth.routes.js";
 
+// 🔐 Rutas de control absoluto
+import superadminRoutes from "./src/routes/superadmin.routes.js";
+
+// 🏢 Rutas de la aplicación (por empresa)
 import clientesRoutes from "./src/routes/clientes.routes.js";
 import vehiculosRoutes from "./src/routes/vehiculos.routes.js";
 import ordenesRoutes from "./src/routes/ordenes.routes.js";
 import pagosRoutes from "./src/routes/pagos.routes.js";
-import superadminRoutes from "./src/routes/superadmin.routes.js";
 
-// import empresasRoutes from "./src/routes/empresas.routes.js";
-
+// 🔐 Middleware global de autenticación
 import { authMiddleware } from "./src/middleware/authMiddleware.js";
 
 dotenv.config();
@@ -21,7 +24,7 @@ dotenv.config();
 const app = express();
 
 /* ------------------------------------
-   CONFIG
+   CONFIGURACIÓN GENERAL
 ------------------------------------ */
 const PORT = process.env.PORT || 5000;
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
@@ -39,32 +42,36 @@ app.use(express.json());
 /* ------------------------------------
    RUTAS PÚBLICAS
 ------------------------------------ */
-app.use(express.json());
 app.use("/api/public", publicRoutes);
 app.use("/api/auth", authRoutes);
 
 /* ------------------------------------
-   RUTAS PROTEGIDAS (APP)
+   RUTAS SUPERADMIN (CONTROL TOTAL)
+   🔥 No dependen de empresa
+------------------------------------ */
+app.use("/api/superadmin", superadminRoutes);
+
+/* ------------------------------------
+   RUTAS PROTEGIDAS POR EMPRESA (APP)
 ------------------------------------ */
 app.use("/api/clientes", authMiddleware, clientesRoutes);
 app.use("/api/vehiculos", authMiddleware, vehiculosRoutes);
 app.use("/api/ordenes", authMiddleware, ordenesRoutes);
 app.use("/api/pagos", authMiddleware, pagosRoutes);
-// app.use("/api/empresas", authMiddleware, empresasRoutes);
 
 /* ------------------------------------
    HEALTHCHECK
 ------------------------------------ */
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", app: "TUAL backend" });
+  res.json({
+    status: "ok",
+    app: "TUAL backend",
+    timestamp: new Date()
+  });
 });
 
-
-app.use("/api/superadmin", superadminRoutes);
-
-
 /* ------------------------------------
-   404
+   404 - RUTA NO ENCONTRADA
 ------------------------------------ */
 app.use((req, res) => {
   res.status(404).json({
@@ -73,7 +80,7 @@ app.use((req, res) => {
 });
 
 /* ------------------------------------
-   MANEJO DE ERRORES
+   MANEJO GLOBAL DE ERRORES
 ------------------------------------ */
 app.use((err, req, res, next) => {
   console.error("🔥 Error:", err);
@@ -83,7 +90,7 @@ app.use((err, req, res, next) => {
 });
 
 /* ------------------------------------
-   SERVER
+   INICIO DEL SERVIDOR
 ------------------------------------ */
 app.listen(PORT, () => {
   console.log(`🚀 TUAL backend corriendo en http://localhost:${PORT}`);

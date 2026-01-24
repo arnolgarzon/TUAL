@@ -13,28 +13,40 @@ const LoginForm = ({ onLogin }) => {
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
+  e.preventDefault();
+  setError("");
+  setLoading(true);
 
-    try {
-      const res = await api.post("/auth/login", { email, password });
+  try {
+    const res = await api.post("/auth/login", { email, password });
 
-      localStorage.setItem("token", res.data.token);
+    const { token, usuario } = res.data;
 
-      onLogin(res.data.usuario);
+    // 🔐 Persistencia real
+    localStorage.setItem("token", token);
+    localStorage.setItem("usuario", JSON.stringify({
+      id: usuario.id,
+      nombre: usuario.nombre,
+      email: usuario.email,
+      rol: usuario.rol,
+      empresa_id: usuario.empresa_id,
+      activo: usuario.activo
+    }));
 
-      navigate("/dashboard", { replace: true });
+    onLogin(usuario);
 
-    } catch (err) {
-      setError(
-        err.response?.data?.error ||
-        "Credenciales incorrectas. Verifica tu correo y contraseña."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+    navigate("/dashboard", { replace: true });
+
+  } catch (err) {
+    setError(
+      err.response?.data?.error ||
+      "Credenciales incorrectas. Verifica tu correo y contraseña."
+    );
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-blue-50 to-indigo-100">

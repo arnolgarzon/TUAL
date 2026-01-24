@@ -10,7 +10,7 @@ import {
 const router = Router();
 
 /**
- * 🔐 TODAS las rutas aquí requieren:
+ * 🔐 Todas las rutas requieren:
  * - Token válido
  * - Rol superadmin
  */
@@ -18,17 +18,17 @@ router.use(authMiddleware);
 router.use(authorizeRoles("superadmin"));
 
 /**
- * 📊 Estado general del sistema
+ * 📊 Estado del sistema
  */
 router.get("/stats", getSystemStats);
 
 /**
- * 🏢 Empresas registradas
+ * 🏢 Empresas
  */
 router.get("/empresas", listEmpresas);
 
 /**
- * 👥 Usuarios del sistema
+ * 👥 Usuarios
  */
 router.get("/usuarios", listUsuarios);
 
