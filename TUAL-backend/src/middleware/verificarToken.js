@@ -1,3 +1,4 @@
+// src/middleware/verificarToken.js
 import jwt from "jsonwebtoken";
 
 export const verificarToken = (req, res, next) => {
@@ -6,9 +7,18 @@ export const verificarToken = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.usuario = decoded;
-    next();
+
+    // IMPORTANTÍSIMO: unificamos el estándar
+    req.user = {
+      id: decoded.id,
+      rol: decoded.rol,
+      nombre: decoded.nombre,
+      email: decoded.email,
+      empresaId: decoded.empresaId ?? decoded.empresa_id ?? null, // por si hay tokens viejos
+    };
+
+    return next();
   } catch (err) {
-    res.status(403).json({ error: "Token inválido" });
+    return res.status(403).json({ error: "Token inválido" });
   }
 };

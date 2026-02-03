@@ -16,18 +16,15 @@ export const authMiddleware = (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    /**
-     * 🔐 CONTEXTO GLOBAL DE USUARIO
-     * Aquí vivirá TODO lo relacionado con identidad
-     */
     req.user = {
       id: decoded.id,
       rol: decoded.rol,
       nombre: decoded.nombre,
-      empresaId: decoded.empresaId ?? null, // preparado para multi-empresa
+      email: decoded.email,
+      empresaId: decoded.empresaId ?? null,
     };
 
-    next();
+    return next();
   } catch (error) {
     return res.status(401).json({
       ok: false,

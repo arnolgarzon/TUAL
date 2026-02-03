@@ -1,26 +1,41 @@
-import ClientesModel from '../models/clientes.model.js';
+// src/controllers/clientes.controller.js
+import ClientesModel from "../models/clientes.model.js";
 
 const crearCliente = async (req, res) => {
   try {
-    const cliente = await ClientesModel.crearCliente(req.body);
-    res.status(201).json(cliente);
+    // empresaId sale del token, NO del body
+    const empresaId = req.user?.empresaId;
+    if (!empresaId) {
+      return res.status(400).json({ mensaje: "El usuario no tiene empresa asignada." });
+    }
+
+    const cliente = await ClientesModel.crearCliente({
+      ...req.body,
+      empresa_id: empresaId, // el model usa columna empresa_id (BD)
+    });
+
+    return res.status(201).json(cliente);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ mensaje: 'Error al crear cliente' });
+    return res.status(500).json({ mensaje: "Error al crear cliente" });
   }
 };
 
 const listarClientes = async (req, res) => {
   try {
-    const { empresa_id } = req.user;
-    const clientes = await ClientesModel.obtenerClientes(empresa_id);
-    res.json(clientes);
+    const empresaId = req.user?.empresaId;
+    if (!empresaId) {
+      return res.status(400).json({ mensaje: "El usuario no tiene empresa asignada." });
+    }
+
+    const clientes = await ClientesModel.obtenerClientes(empresaId);
+    return res.json(clientes);
   } catch (error) {
-    res.status(500).json({ mensaje: 'Error al obtener clientes' });
+    return res.status(500).json({ mensaje: "Error al obtener clientes" });
   }
 };
 
 export default {
   crearCliente,
-  listarClientes
+  listarClientes,
 };

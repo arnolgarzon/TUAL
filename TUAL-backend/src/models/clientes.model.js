@@ -25,7 +25,28 @@ const obtenerClientes = async (empresa_id) => {
   return rows;
 };
 
+const obtenerTodosLosClientes = async () => {
+  const result = await pool.query(`
+    SELECT 
+      c.id,
+      c.nombre,
+      c.documento,
+      c.telefono,
+      c.email,
+      c.empresa_id,
+      e.nombre AS empresa_nombre,
+      c.created_at
+    FROM clientes c
+    JOIN empresas e ON e.id = c.empresa_id
+    ORDER BY c.created_at DESC
+  `);
+
+  return result.rows;
+};
+
+
 export default {
   crearCliente,
-  obtenerClientes
+  obtenerClientes,
+  obtenerTodosLosClientes
 };
