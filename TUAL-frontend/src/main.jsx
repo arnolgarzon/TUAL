@@ -1,16 +1,15 @@
 import React from "react";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter } from "react-router-dom"; // ✅ Router para navegación
+import { BrowserRouter } from "react-router-dom";
 import App from "./App.jsx";
-import "./index.css"; // ✅ TailwindCSS y estilos globales
+import "./index.css";
 
-// Punto de entrada principal
 const rootElement = document.getElementById("root");
 
 createRoot(rootElement).render(
   <StrictMode>
-    <BrowserRouter>
+    <BrowserRouter basename="/TUAL">
       <App />
     </BrowserRouter>
   </StrictMode>

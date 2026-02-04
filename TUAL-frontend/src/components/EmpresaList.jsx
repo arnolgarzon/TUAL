@@ -1,15 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { fetchProtectedData, deleteProtectedData } from '../utils/api';
-import {
-  PlusCircle,
-  Edit,
-  Trash2,
-  Loader2,
-  AlertTriangle,
-  Power
-} from 'lucide-react';
+import { fetchProtectedData, patchProtectedData } from '../utils/api';
+import { PlusCircle, Edit, Loader2, AlertTriangle, Power } from 'lucide-react';
 
 const EmpresaList = () => {
   const { usuario } = useAuth();
@@ -17,31 +10,25 @@ const EmpresaList = () => {
 
   const [empresas, setEmpresas] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState(null);
 
-  /**
-   * 📦 Obtener empresas
-   */
   const fetchEmpresas = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
     try {
       const response = await fetchProtectedData('/superadmin/empresas');
-
-      // 🔐 Normalizamos cualquier formato de backend
       const data = Array.isArray(response)
         ? response
         : response?.data || response?.empresas || [];
-
       setEmpresas(data);
     } catch (err) {
       console.error('Error al obtener empresas:', err);
       setError(
         err.response?.data?.message ||
-        err.response?.data?.error ||
-        'No se pudo cargar la lista de empresas.'
+          err.response?.data?.error ||
+          'No se pudo cargar la lista de empresas.'
       );
     } finally {
       setIsLoading(false);
@@ -52,47 +39,39 @@ const EmpresaList = () => {
     fetchEmpresas();
   }, [fetchEmpresas]);
 
-  /**
-   * 🗑️ Eliminar empresa
-   */
-  const handleDelete = async (empresaId, empresaName) => {
+  const handleToggleActivo = async (empresa) => {
+    const nextActivo = !Boolean(empresa.activo);
     const confirm = window.confirm(
-      `¿Eliminar la empresa "${empresaName}"?\n\nEsta acción NO se puede deshacer.`
+      `${nextActivo ? '¿Activar' : '¿Suspender'} la empresa "${empresa.nombre}"?`
     );
     if (!confirm) return;
 
     try {
-      setIsDeleting(true);
-      await deleteProtectedData(`/empresas/${empresaId}`);
+      setBusyId(empresa.id);
+      await patchProtectedData(`/superadmin/empresas/${empresa.id}/estado`, {
+        activo: nextActivo,
+      });
       await fetchEmpresas();
-      alert(`Empresa "${empresaName}" eliminada correctamente.`);
     } catch (err) {
-      console.error('Error al eliminar empresa:', err);
+      console.error('Error al cambiar estado empresa:', err);
       setError(
-        err.response?.data?.message || 'No se pudo eliminar la empresa.'
+        err.response?.data?.message ||
+          'No se pudo actualizar el estado de la empresa.'
       );
     } finally {
-      setIsDeleting(false);
+      setBusyId(null);
     }
   };
 
-  /**
-   * ⏳ Loading
-   */
   if (isLoading) {
     return (
       <div className="flex justify-center items-center p-10">
         <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-        <span className="ml-3 text-lg text-gray-700">
-          Cargando empresas...
-        </span>
+        <span className="ml-3 text-lg text-gray-700">Cargando empresas...</span>
       </div>
     );
   }
 
-  /**
-   * ❌ Error
-   */
   if (error) {
     return (
       <div className="p-6 text-center text-red-600 border border-red-300 bg-red-50 rounded-lg flex flex-col items-center">
@@ -106,9 +85,7 @@ const EmpresaList = () => {
   return (
     <div className="p-4 md:p-0">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">
-          Gestión de Empresas
-        </h1>
+        <h1 className="text-3xl font-bold text-gray-800">Gestión de Empresas</h1>
 
         {usuario?.rol === 'superadmin' && (
           <button
@@ -129,6 +106,7 @@ const EmpresaList = () => {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">NIT</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Teléfono</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
               <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Acciones</th>
             </tr>
           </thead>
@@ -140,6 +118,15 @@ const EmpresaList = () => {
                 <td className="px-6 py-4 text-sm">{empresa.nombre}</td>
                 <td className="px-6 py-4 text-sm">{empresa.nit || '—'}</td>
                 <td className="px-6 py-4 text-sm">{empresa.telefono || '—'}</td>
+                <td className="px-6 py-4 text-sm">
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                      empresa.activo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                    }`}
+                  >
+                    {empresa.activo ? 'Activa' : 'Suspendida'}
+                  </span>
+                </td>
 
                 <td className="px-6 py-4 flex justify-center gap-2">
                   <button
@@ -151,23 +138,18 @@ const EmpresaList = () => {
                   </button>
 
                   {usuario?.rol === 'superadmin' && (
-                    <>
-                      <button
-                        title="Activar / Suspender (pendiente backend)"
-                        className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-full"
-                      >
+                    <button
+                      disabled={busyId === empresa.id}
+                      title="Activar / Suspender"
+                      onClick={() => handleToggleActivo(empresa)}
+                      className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-full disabled:opacity-50"
+                    >
+                      {busyId === empresa.id ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
                         <Power className="w-5 h-5" />
-                      </button>
-
-                      <button
-                        disabled={isDeleting}
-                        title="Eliminar"
-                        onClick={() => handleDelete(empresa.id, empresa.nombre)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-full disabled:opacity-50"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    </>
+                      )}
+                    </button>
                   )}
                 </td>
               </tr>
@@ -176,9 +158,7 @@ const EmpresaList = () => {
         </table>
 
         {empresas.length === 0 && (
-          <div className="p-10 text-center text-gray-500">
-            No hay empresas registradas.
-          </div>
+          <div className="p-10 text-center text-gray-500">No hay empresas registradas.</div>
         )}
       </div>
     </div>

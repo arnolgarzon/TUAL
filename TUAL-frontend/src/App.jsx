@@ -15,7 +15,7 @@ import RegisterForm from "./components/RegisterForm";
 /* ------------------------------
    LAYOUT PRIVADO
 --------------------------------*/
-import DashboardLayout from "./layouts/DashboardLayout";
+import DashboardLayout from "./layouts/DashboardLayout"; // IMPORTANTE: usa el de layouts
 
 /* ------------------------------
    MÓDULOS PRIVADOS
@@ -33,6 +33,9 @@ import UserForm from "./components/UserForm";
 /* Clientes */
 import ClienteList from "./components/ClienteList";
 import ClienteForm from "./components/ClienteForm";
+
+/* Superadmin extra */
+import ClienteGlobalList from "./components/ClienteGlobalList";
 
 /* ------------------------------
    PROTECCIÓN POR ROL
@@ -53,9 +56,6 @@ function App() {
   const { usuario, isLoading, setAuthenticatedUser } = useAuth();
   const navigate = useNavigate();
 
-  /* ------------------------------
-     LOGIN
-  --------------------------------*/
   const handleLogin = (dataFromLogin) => {
     const normalizedData = dataFromLogin?.usuario
       ? dataFromLogin
@@ -68,17 +68,11 @@ function App() {
     navigate("/dashboard", { replace: true });
   };
 
-  /* ------------------------------
-     LOGOUT
-  --------------------------------*/
   const handleLogout = () => {
     setAuthenticatedUser(null);
     navigate("/login", { replace: true });
   };
 
-  /* ------------------------------
-     LOADING GLOBAL
-  --------------------------------*/
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -87,9 +81,6 @@ function App() {
     );
   }
 
-  /* ------------------------------
-     RUTAS
-  --------------------------------*/
   return (
     <Routes>
       {/* ---------- PÚBLICAS ---------- */}
@@ -109,7 +100,6 @@ function App() {
         }
       />
 
-      {/* REGISTRO DE EMPRESA */}
       <Route
         path="/crear-empresa"
         element={
@@ -117,7 +107,6 @@ function App() {
         }
       />
 
-      {/* LEGACY */}
       <Route
         path="/register"
         element={
@@ -138,7 +127,7 @@ function App() {
       >
         <Route index element={<Dashboard />} />
 
-        {/* EMPRESAS */}
+        {/* EMPRESAS (SUPERADMIN) */}
         <Route
           path="empresas"
           element={
@@ -147,7 +136,6 @@ function App() {
             </RoleProtected>
           }
         />
-
         <Route
           path="empresas/:id"
           element={
@@ -157,16 +145,17 @@ function App() {
           }
         />
 
-        {/* USUARIOS */}
+        {/* USUARIOS (SUPERADMIN - usuarios-auth globales) */}
         <Route
           path="usuarios"
           element={
-            <RoleProtected allowedRoles={["admin_empresa"]}>
+            <RoleProtected allowedRoles={["superadmin"]}>
               <UserManagement />
             </RoleProtected>
           }
         />
 
+        {/* (Opcional) Usuarios internos por empresa (ADMIN_EMPRESA) */}
         <Route
           path="usuarios/crear"
           element={
@@ -176,7 +165,7 @@ function App() {
           }
         />
 
-        {/* CLIENTES */}
+        {/* CLIENTES (POR EMPRESA) */}
         <Route
           path="clientes"
           element={
@@ -185,7 +174,6 @@ function App() {
             </RoleProtected>
           }
         />
-
         <Route
           path="clientes/crear"
           element={
@@ -194,7 +182,6 @@ function App() {
             </RoleProtected>
           }
         />
-
         <Route
           path="clientes/:id"
           element={
@@ -203,10 +190,19 @@ function App() {
             </RoleProtected>
           }
         />
+
+        {/* CLIENTES GLOBAL (SUPERADMIN) */}
+        <Route
+          path="clientes-global"
+          element={
+            <RoleProtected allowedRoles={["superadmin"]}>
+              <ClienteGlobalList />
+            </RoleProtected>
+          }
+        />
       </Route>
 
-      {/* ---------- FALLBACK ---------- */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
