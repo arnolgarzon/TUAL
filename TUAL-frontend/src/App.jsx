@@ -9,6 +9,7 @@ import Home from "./components/Home";
 import LoginForm from "./components/LoginForm";
 import RegisterEmpresa from "./components/RegisterEmpresa";
 import RegisterForm from "./components/RegisterForm";
+import ForgotPassword from "./components/ForgotPassword";
 import ResetPassword from "./components/ResetPassword";
 
 /* ==============================
@@ -68,7 +69,6 @@ function App() {
      LOGIN / LOGOUT
   ================================*/
   const handleLogin = (loginResponse) => {
-    // Normalización segura del payload
     const normalized = loginResponse?.usuario
       ? {
           usuario: loginResponse.usuario,
@@ -82,11 +82,11 @@ function App() {
 
     setAuthenticatedUser(normalized);
 
-    const forcePasswordChange =
+    const mustChange =
       normalized?.mustChangePassword === true ||
       normalized?.usuario?.must_change_password === true;
 
-    if (forcePasswordChange) {
+    if (mustChange) {
       navigate("/cambiar-clave", { replace: true });
       return;
     }
@@ -146,7 +146,8 @@ function App() {
         }
       />
 
-      {/* 🔑 RESET DE CONTRASEÑA */}
+      {/* 🔐 RECUPERACIÓN DE CONTRASEÑA */}
+      <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-clave/:token" element={<ResetPassword />} />
 
       {/* ==========================
@@ -201,7 +202,6 @@ function App() {
             </RoleProtected>
           }
         />
-
         <Route
           path="usuarios-internos"
           element={
@@ -210,7 +210,6 @@ function App() {
             </RoleProtected>
           }
         />
-
         <Route
           path="usuarios/crear"
           element={

@@ -37,8 +37,8 @@ const ForgotPassword = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-8">
-        <h2 className="text-2xl font-extrabold text-center text-gray-900 mb-2">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 sm:p-8">
+        <h2 className="text-2xl sm:text-3xl font-bold text-center text-gray-900 mb-2">
           ¿Olvidaste tu contraseña?
         </h2>
         <p className="text-sm text-center text-gray-600 mb-6">
@@ -46,14 +46,14 @@ const ForgotPassword = () => {
         </p>
 
         {success ? (
-          <div className="flex flex-col items-center text-center space-y-3">
-            <CheckCircle className="h-12 w-12 text-green-600" />
-            <p className="text-green-700 font-semibold">
-              Revisa tu correo electrónico
+          <div className="flex flex-col items-center text-center space-y-4">
+            <CheckCircle className="h-14 w-14 text-green-600" />
+            <p className="text-green-700 font-semibold text-lg">
+              Revisa tu correo 📬
             </p>
             <p className="text-sm text-gray-600">
-              Si el correo existe, recibirás un enlace para restablecer tu
-              contraseña.
+              Si el correo existe en nuestro sistema, recibirás un enlace para
+              crear una nueva contraseña.
             </p>
 
             <Link
@@ -71,15 +71,19 @@ const ForgotPassword = () => {
               <input
                 type="email"
                 placeholder="Correo electrónico"
+                autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full h-12 pl-10 pr-4 border rounded-xl focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
             {error && (
-              <div className="flex items-start gap-2 text-sm text-red-700 bg-red-100 p-3 rounded-lg">
+              <div
+                className="flex items-start gap-2 text-sm text-red-700 bg-red-100 p-3 rounded-xl"
+                aria-live="assertive"
+              >
                 <AlertTriangle className="h-4 w-4 mt-0.5" />
                 <span>{error}</span>
               </div>
@@ -88,11 +92,12 @@ const ForgotPassword = () => {
             <button
               type="submit"
               disabled={loading}
-              className={`w-full py-3 rounded-lg font-semibold text-white transition ${
-                loading
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-blue-600 hover:bg-blue-700"
-              }`}
+              className={`w-full h-12 rounded-xl font-semibold text-white transition-all
+                ${
+                  loading
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-blue-600 hover:bg-blue-700 active:scale-[0.98]"
+                }`}
             >
               {loading ? "Enviando enlace..." : "Enviar enlace de recuperación"}
             </button>
