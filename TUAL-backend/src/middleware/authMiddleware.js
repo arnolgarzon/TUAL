@@ -1,27 +1,61 @@
 // src/middleware/authMiddleware.js
 import jwt from "jsonwebtoken";
 
-export const authMiddleware = (req, res, next) => {
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({
-      ok: false,
-      message: "Token no proporcionado o formato inválido",
-    });
-  }
-
-  const token = authHeader.split(" ")[1];
-
+/**
+ * Middleware JWT:
+ * - Espera header: Authorization: Bearer <token>
+ * - Setea req.user = { id, rol, nombre, email, empresaId }
+ *
+ * Exporta:
+ * - default:  import authMiddleware from ...
+ * - named:    import { authMiddleware } from ...
+ */
+const authMiddleware = (req, res, next) => {
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const authHeader = req.headers.authorization || "";
+
+    if (!authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({
+        ok: false,
+        message: "Token no proporcionado o formato inválido",
+      });
+    }
+
+    const token = authHeader.slice("Bearer ".length).trim();
+    if (!token) {
+      return res.status(401).json({
+        ok: false,
+        message: "Token no proporcionado",
+      });
+    }
+
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      return res.status(500).json({
+        ok: false,
+        message: "JWT_SECRET no está configurado en el servidor",
+      });
+    }
+
+    const decoded = jwt.verify(token, secret);
+
+    const rol = String(decoded.rol || "").trim().toLowerCase();
+    const empresaId = decoded.empresaId ?? null;
+
+    // Para superadmin permitimos empresaId null; para otros roles debe existir
+    if (rol !== "superadmin" && !empresaId) {
+      return res.status(401).json({
+        ok: false,
+        message: "Token inválido: falta empresaId",
+      });
+    }
 
     req.user = {
       id: decoded.id,
-      rol: decoded.rol,
-      nombre: decoded.nombre,
-      email: decoded.email,
-      empresaId: decoded.empresaId ?? null,
+      rol,
+      nombre: decoded.nombre ?? null,
+      email: decoded.email ?? null,
+      empresaId,
     };
 
     return next();
@@ -32,3 +66,9 @@ export const authMiddleware = (req, res, next) => {
     });
   }
 };
+
+// ✅ named export (para imports con llaves)
+export { authMiddleware };
+
+// ✅ default export (para imports sin llaves)
+export default authMiddleware;

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { LogIn, Lock, Mail, ArrowLeft } from "lucide-react";
 import api from "../utils/api";
 import tualLogo from "../assets/icono.png";
@@ -10,48 +10,70 @@ const LoginForm = ({ onLogin }) => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const navigate = useNavigate();
+  const prettyError = (err) => {
+    const data = err?.response?.data;
 
-  const handleSubmit = async (e) => {
-  e.preventDefault();
-  setError("");
-  setLoading(true);
+    // Mensajes específicos del backend
+    if (data?.code === "EMAIL_NOT_VERIFIED") {
+      return "Tu correo aún no está verificado. Contacta al administrador o solicita verificación.";
+    }
+    if (data?.code === "USER_DISABLED") {
+      return "Tu usuario está desactivado. Contacta al administrador.";
+    }
 
-  try {
-    const res = await api.post("/auth/login", { email, password });
-
-    const { token, usuario } = res.data;
-
-    // 🔐 Persistencia real
-    localStorage.setItem("token", token);
-    localStorage.setItem("usuario", JSON.stringify({
-      id: usuario.id,
-      nombre: usuario.nombre,
-      email: usuario.email,
-      rol: usuario.rol,
-      empresa_id: usuario.empresa_id,
-      activo: usuario.activo
-    }));
-
-    onLogin(usuario);
-
-    navigate("/dashboard", { replace: true });
-
-  } catch (err) {
-    setError(
-      err.response?.data?.error ||
+    return (
+      data?.message ||
+      data?.error ||
       "Credenciales incorrectas. Verifica tu correo y contraseña."
     );
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      const cleanEmail = String(email).trim().toLowerCase();
+
+      const res = await api.post("/auth/login", {
+        email: cleanEmail,
+        password,
+      });
+
+      const { token, usuario, mustChangePassword } = res.data;
+
+      // 🔐 Persistencia real
+      localStorage.setItem("token", token);
+
+      // Guardar usuario completo (incluye must_change_password / email_verificado si vienen)
+      localStorage.setItem(
+        "usuario",
+        JSON.stringify({
+          ...usuario,
+          must_change_password: usuario?.must_change_password ?? false,
+          email_verificado: usuario?.email_verificado ?? true,
+        })
+      );
+
+      // ✅ IMPORTANTÍSIMO: pasa TODO el payload al App (token + usuario + mustChangePassword)
+      if (typeof onLogin === "function") {
+        onLogin({
+          token,
+          usuario,
+          mustChangePassword: mustChangePassword === true,
+        });
+      }
+    } catch (err) {
+      setError(prettyError(err));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-8">
-
         {/* HEADER */}
         <div className="text-center mb-8">
           <img src={tualLogo} alt="TUAL" className="h-14 mx-auto mb-3" />
@@ -65,7 +87,6 @@ const LoginForm = ({ onLogin }) => {
 
         {/* FORM */}
         <form onSubmit={handleSubmit} className="space-y-5">
-
           <div className="relative">
             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
@@ -116,13 +137,16 @@ const LoginForm = ({ onLogin }) => {
           </button>
         </form>
 
+        <Link
+          to="/olvide-mi-clave"
+          className="text-sm text-blue-600 hover:underline"
+        >
+          ¿Olvidaste tu contraseña?
+        </Link>
+
         {/* FOOTER */}
         <div className="mt-6 space-y-4 text-center text-sm">
-
-          <Link
-            to="/crear-empresa"
-            className="text-blue-600 hover:underline"
-          >
+          <Link to="/crear-empresa" className="text-blue-600 hover:underline">
             ¿Aún no tienes empresa en TUAL? Crear una
           </Link>
 

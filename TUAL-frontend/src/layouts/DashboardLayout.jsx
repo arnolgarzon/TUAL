@@ -1,5 +1,5 @@
 import React from "react";
-import { Outlet, NavLink, useLocation } from "react-router-dom";
+import { Outlet, NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Briefcase,
   Users,
@@ -7,7 +7,9 @@ import {
   LayoutDashboard,
   UserCheck,
   Settings,
-  Globe
+  Globe,
+  KeyRound,
+  ShieldAlert,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 
@@ -38,16 +40,33 @@ const sidebarNav = [
     icon: Globe,
     roles: ["superadmin"],
   },
+
+  // Usuarios internos por empresa (ADMIN_EMPRESA)
+  {
+    name: "Usuarios internos",
+    href: "/dashboard/usuarios-internos",
+    icon: Users,
+    roles: ["admin_empresa"],
+  },
+
   {
     name: "Clientes",
     icon: UserCheck,
     roles: ["admin_empresa", "empleado"],
     children: [
       { name: "Listado", href: "/dashboard/clientes" },
-      // OJO: tu App usa /clientes/crear (no /nuevo)
       { name: "Nuevo cliente", href: "/dashboard/clientes/crear" },
     ],
   },
+
+  // Cambiar contraseña (todos)
+  {
+    name: "Cambiar contraseña",
+    href: "/cambiar-clave",
+    icon: KeyRound,
+    roles: ["superadmin", "admin_empresa", "empleado"],
+  },
+
   {
     name: "Configuración",
     href: "/dashboard/configuracion",
@@ -59,6 +78,18 @@ const sidebarNav = [
 const DashboardLayout = ({ onLogout }) => {
   const { usuario, isLoading, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const userRole = String(usuario?.rol || "").toLowerCase();
+  const mustChangePassword =
+    usuario?.must_change_password === true || usuario?.mustChangePassword === true;
+
+  // ✅ IMPORTANTE: Hooks SIEMPRE antes de returns condicionales
+  React.useEffect(() => {
+    if (!isLoading && mustChangePassword && location.pathname !== "/cambiar-clave") {
+      navigate("/cambiar-clave", { replace: true });
+    }
+  }, [isLoading, mustChangePassword, location.pathname, navigate]);
 
   const isActive = (href) => {
     if (!href) return false;
@@ -76,12 +107,15 @@ const DashboardLayout = ({ onLogout }) => {
 
   if (!usuario) return null;
 
-  const userRole = String(usuario.rol || "").toLowerCase();
-
-  const filteredNav = sidebarNav.filter((item) => item.roles.includes(userRole));
+  const filteredNav = sidebarNav
+    .filter((item) => item.roles.includes(userRole))
+    .filter((item) => {
+      if (!mustChangePassword) return true;
+      const allowed = new Set(["Inicio", "Cambiar contraseña"]);
+      return allowed.has(item.name);
+    });
 
   const doLogout = () => {
-    // si tu AuthProvider ya tiene logout, úsalo. Si App te pasa onLogout, úsalo.
     if (typeof onLogout === "function") return onLogout();
     return logout();
   };
@@ -90,9 +124,23 @@ const DashboardLayout = ({ onLogout }) => {
     <div className="flex h-screen bg-gray-100">
       <aside className="w-64 bg-white border-r border-gray-200 flex flex-col justify-between shadow-sm">
         <div className="p-4">
-          <div className="text-2xl font-bold text-blue-700 mb-8 tracking-wide">
+          <div className="text-2xl font-bold text-blue-700 mb-6 tracking-wide">
             TUAL
           </div>
+
+          {mustChangePassword ? (
+            <div className="mb-4 p-3 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm">
+              <div className="flex items-start gap-2">
+                <ShieldAlert className="h-5 w-5 mt-0.5" />
+                <div>
+                  <p className="font-semibold">Acción requerida</p>
+                  <p className="text-xs mt-1">
+                    Debes cambiar tu contraseña para continuar usando el sistema.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           <nav className="space-y-1">
             {filteredNav.map((item) => (

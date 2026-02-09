@@ -1,146 +1,224 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Loader2, AlertTriangle, Power } from 'lucide-react';
-import { fetchProtectedData, patchProtectedData } from '../utils/api';
+import React, { useEffect, useMemo, useState } from "react";
+import api from "../utils/api";
+import { useAuth } from "../hooks/useAuth";
 
-const UserManagement = () => {
+export default function UserManagement() {
+  const { user } = useAuth();
+
+  const [loading, setLoading] = useState(false);
   const [usuarios, setUsuarios] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [busyId, setBusyId] = useState(null);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState("");
 
-  const loadUsers = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
+  const [form, setForm] = useState({
+    nombre: "",
+    email: "",
+    password: "",
+    rol: "empleado",
+  });
+
+  const isAdminEmpresa = useMemo(
+    () => String(user?.rol || "").toLowerCase() === "admin_empresa",
+    [user]
+  );
+
+  const fetchUsuarios = async () => {
+    setLoading(true);
+    setError("");
     try {
-      const response = await fetchProtectedData('/superadmin/usuarios-auth');
-      const data = Array.isArray(response)
-        ? response
-        : response?.data || response?.usuarios || [];
-      setUsuarios(data);
-    } catch (err) {
-      console.error('Error al cargar usuarios:', err);
+      const res = await api.get("/empresa/usuarios");
+      setUsuarios(res.data?.usuarios || []);
+    } catch (e) {
       setError(
-        err.response?.data?.message ||
-          err.response?.data?.error ||
-          'No se pudieron cargar los usuarios.'
+        e.response?.data?.message ||
+          e.response?.data?.error ||
+          "Error cargando usuarios"
       );
     } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadUsers();
-  }, [loadUsers]);
-
-  const handleToggleActivo = async (user) => {
-    const nextActivo = !Boolean(user.activo);
-    const confirm = window.confirm(
-      `${nextActivo ? '¿Activar' : '¿Desactivar'} al usuario "${user.nombre}"?`
-    );
-    if (!confirm) return;
-
-    try {
-      setBusyId(user.id);
-      await patchProtectedData(`/superadmin/usuarios-auth/${user.id}/estado`, {
-        activo: nextActivo,
-      });
-      await loadUsers();
-    } catch (err) {
-      console.error('Error al cambiar estado usuario:', err);
-      setError(
-        err.response?.data?.message ||
-          'No se pudo actualizar el estado del usuario.'
-      );
-    } finally {
-      setBusyId(null);
+      setLoading(false);
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="p-6 text-center text-blue-600 flex justify-center items-center">
-        <Loader2 className="w-6 h-6 animate-spin mr-2" />
-        Cargando lista de usuarios...
-      </div>
-    );
-  }
+  useEffect(() => {
+    fetchUsuarios();
+  }, []);
 
-  if (error) {
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    setError("");
+
+    try {
+      await api.post("/empresa/usuarios", form);
+      setForm({ nombre: "", email: "", password: "", rol: "empleado" });
+      fetchUsuarios();
+    } catch (e) {
+      setError(
+        e.response?.data?.message ||
+          e.response?.data?.error ||
+          "Error creando empleado"
+      );
+    }
+  };
+
+  const toggleActivo = async (id, activoActual) => {
+    setError("");
+    try {
+      await api.patch(`/empresa/usuarios/${id}/activo`, { activo: !activoActual });
+      fetchUsuarios();
+    } catch (e) {
+      setError(
+        e.response?.data?.message ||
+          e.response?.data?.error ||
+          "Error actualizando estado"
+      );
+    }
+  };
+
+  const changeRol = async (id, rol) => {
+    setError("");
+    try {
+      await api.patch(`/empresa/usuarios/${id}/rol`, { rol });
+      fetchUsuarios();
+    } catch (e) {
+      setError(
+        e.response?.data?.message ||
+          e.response?.data?.error ||
+          "Error actualizando rol"
+      );
+    }
+  };
+
+  if (!isAdminEmpresa) {
     return (
-      <div className="p-6 text-center text-red-600 border border-red-300 bg-red-50 rounded-lg flex flex-col items-center">
-        <AlertTriangle className="w-10 h-10 mb-3" />
-        <div>{error}</div>
+      <div style={{ padding: 16 }}>
+        <h2>Usuarios</h2>
+        <p>No tienes permisos para administrar usuarios internos.</p>
       </div>
     );
   }
 
   return (
-    <div className="p-4 md:p-0">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">Gestión de Usuarios (Login)</h1>
+    <div style={{ padding: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+        <div>
+          <h2>Usuarios internos</h2>
+          <p style={{ color: "#555" }}>
+            Crea empleados con contraseña temporal (se les pedirá cambiarla al iniciar sesión).
+          </p>
+        </div>
+        <button onClick={fetchUsuarios} disabled={loading}>
+          {loading ? "Cargando..." : "Refrescar"}
+        </button>
       </div>
 
-      <div className="bg-white shadow-xl rounded-lg overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rol</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Empresa</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
-            </tr>
-          </thead>
+      {error ? (
+        <div style={{ marginTop: 12, padding: 10, background: "#ffe6e6", color: "#900" }}>
+          {error}
+        </div>
+      ) : null}
 
-          <tbody className="bg-white divide-y divide-gray-200">
-            {usuarios.map((user) => (
-              <tr key={user.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.id}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{user.nombre}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{user.email}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 capitalize">{user.rol}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{user.empresa_nombre || '—'}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                      user.activo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                    }`}
-                  >
-                    {user.activo ? 'Activo' : 'Inactivo'}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <div className="flex justify-center">
-                    <button
-                      onClick={() => handleToggleActivo(user)}
-                      disabled={busyId === user.id}
-                      title="Activar / Desactivar"
-                      className="text-yellow-700 hover:text-yellow-900 p-2 rounded-full hover:bg-yellow-50 disabled:opacity-50"
-                    >
-                      {busyId === user.id ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                      ) : (
-                        <Power className="w-5 h-5" />
-                      )}
-                    </button>
-                  </div>
-                </td>
+      <div style={{ marginTop: 16, padding: 12, border: "1px solid #ddd", borderRadius: 8 }}>
+        <h3>Crear empleado</h3>
+
+        <form onSubmit={handleCreate} style={{ display: "grid", gap: 10, marginTop: 10 }}>
+          <input
+            placeholder="Nombre"
+            value={form.nombre}
+            onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
+            required
+          />
+
+          <input
+            placeholder="Email"
+            type="email"
+            value={form.email}
+            onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+            required
+          />
+
+          <input
+            placeholder="Contraseña temporal (mín 8 + 1 número)"
+            type="password"
+            value={form.password}
+            onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+            required
+            minLength={8}
+          />
+
+          <select
+            value={form.rol}
+            onChange={(e) => setForm((f) => ({ ...f, rol: e.target.value }))}
+          >
+            <option value="empleado">Empleado</option>
+            <option value="admin_empresa">Admin empresa</option>
+          </select>
+
+          <button type="submit">Crear</button>
+        </form>
+      </div>
+
+      <div style={{ marginTop: 16 }}>
+        <h3>Lista de usuarios</h3>
+
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>
+                  Nombre
+                </th>
+                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>
+                  Email
+                </th>
+                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>
+                  Rol
+                </th>
+                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>
+                  Estado
+                </th>
+                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>
+                  Acciones
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {usuarios.map((u) => (
+                <tr key={u.id}>
+                  <td style={{ borderBottom: "1px solid #eee", padding: 8 }}>{u.nombre}</td>
+                  <td style={{ borderBottom: "1px solid #eee", padding: 8 }}>{u.email}</td>
+                  <td style={{ borderBottom: "1px solid #eee", padding: 8 }}>
+                    <select value={u.rol} onChange={(e) => changeRol(u.id, e.target.value)}>
+                      <option value="empleado">empleado</option>
+                      <option value="admin_empresa">admin_empresa</option>
+                    </select>
 
-        {usuarios.length === 0 && (
-          <div className="p-10 text-center text-gray-500">
-            No se encontraron usuarios en el sistema.
-          </div>
-        )}
+                    {u.must_change_password ? (
+                      <span style={{ marginLeft: 8, fontSize: 12, color: "#555" }}>
+                        (Debe cambiar clave)
+                      </span>
+                    ) : null}
+                  </td>
+                  <td style={{ borderBottom: "1px solid #eee", padding: 8 }}>
+                    {u.activo ? "Activo" : "Inactivo"}
+                  </td>
+                  <td style={{ borderBottom: "1px solid #eee", padding: 8 }}>
+                    <button onClick={() => toggleActivo(u.id, u.activo)}>
+                      {u.activo ? "Desactivar" : "Activar"}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+
+              {usuarios.length === 0 ? (
+                <tr>
+                  <td colSpan={5} style={{ padding: 12, color: "#666" }}>
+                    No hay usuarios creados.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
-};
-
-export default UserManagement;
+}

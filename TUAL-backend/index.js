@@ -3,22 +3,6 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 
-// 🌍 Rutas públicas y auth
-import publicRoutes from "./src/routes/public.routes.js";
-import authRoutes from "./src/routes/auth.routes.js";
-
-// 🔐 Rutas de control absoluto
-import superadminRoutes from "./src/routes/superadmin.routes.js";
-
-// 🏢 Rutas de la aplicación (por empresa)
-import clientesRoutes from "./src/routes/clientes.routes.js";
-import vehiculosRoutes from "./src/routes/vehiculos.routes.js";
-import ordenesRoutes from "./src/routes/ordenes.routes.js";
-import pagosRoutes from "./src/routes/pagos.routes.js";
-
-// 🔐 Middleware global de autenticación
-import { authMiddleware } from "./src/middleware/authMiddleware.js";
-
 dotenv.config();
 
 const app = express();
@@ -26,18 +10,59 @@ const app = express();
 /* ------------------------------------
    CONFIGURACIÓN GENERAL
 ------------------------------------ */
-const PORT = process.env.PORT || 5000;
+const PORT = Number(process.env.PORT) || 5000;
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
 
 /* ------------------------------------
    MIDDLEWARES GLOBALES
 ------------------------------------ */
-app.use(cors({
-  origin: CLIENT_URL,
-  credentials: true,
-}));
 
-app.use(express.json());
+// Si estás detrás de proxy (Render/NGINX), habilita esto.
+// app.set("trust proxy", 1);
+
+app.use(
+  cors({
+    origin: CLIENT_URL,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
+
+app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ extended: true }));
+
+// Logger sencillo (útil en dev)
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on("finish", () => {
+    const ms = Date.now() - start;
+    console.log(`${req.method} ${req.originalUrl} -> ${res.statusCode} (${ms}ms)`);
+  });
+  next();
+});
+
+/* ------------------------------------
+   RUTAS
+------------------------------------ */
+// 🌍 Públicas y Auth
+import publicRoutes from "./src/routes/public.routes.js";
+import authRoutes from "./src/routes/auth.routes.js";
+
+// 🔐 Superadmin
+import superadminRoutes from "./src/routes/superadmin.routes.js";
+
+// 🏢 App por empresa
+import clientesRoutes from "./src/routes/clientes.routes.js";
+import vehiculosRoutes from "./src/routes/vehiculos.routes.js";
+import ordenesRoutes from "./src/routes/ordenes.routes.js";
+import pagosRoutes from "./src/routes/pagos.routes.js";
+
+// 👥 Usuarios internos por empresa
+import empresaUsuariosRoutes from "./src/routes/empresaUsuarios.routes.js";
+
+// ✅ RBAC por empresa (NUEVO)
+import permisosEmpresaRoutes from "./src/routes/permisosEmpresa.routes.js";
 
 /* ------------------------------------
    RUTAS PÚBLICAS
@@ -47,17 +72,27 @@ app.use("/api/auth", authRoutes);
 
 /* ------------------------------------
    RUTAS SUPERADMIN (CONTROL TOTAL)
-   🔥 No dependen de empresa
 ------------------------------------ */
 app.use("/api/superadmin", superadminRoutes);
 
 /* ------------------------------------
-   RUTAS PROTEGIDAS POR EMPRESA (APP)
+   RUTAS RBAC EMPRESA (ADMIN_EMPRESA)
+   /api/empresa/permisos
+   /api/empresa/roles
+   /api/empresa/roles/:rol/permisos
 ------------------------------------ */
-app.use("/api/clientes", authMiddleware, clientesRoutes);
-app.use("/api/vehiculos", authMiddleware, vehiculosRoutes);
-app.use("/api/ordenes", authMiddleware, ordenesRoutes);
-app.use("/api/pagos", authMiddleware, pagosRoutes);
+app.use("/api/empresa", permisosEmpresaRoutes);
+
+/* ------------------------------------
+   RUTAS APP (cada router aplica auth / RBAC / módulos)
+------------------------------------ */
+app.use("/api/clientes", clientesRoutes);
+app.use("/api/vehiculos", vehiculosRoutes);
+app.use("/api/ordenes", ordenesRoutes);
+app.use("/api/pagos", pagosRoutes);
+
+// Usuarios internos (empresa)
+app.use("/api/empresa/usuarios", empresaUsuariosRoutes);
 
 /* ------------------------------------
    HEALTHCHECK
@@ -66,7 +101,8 @@ app.get("/api/health", (req, res) => {
   res.json({
     status: "ok",
     app: "TUAL backend",
-    timestamp: new Date()
+    env: process.env.NODE_ENV || "development",
+    timestamp: new Date().toISOString(),
   });
 });
 
@@ -75,6 +111,7 @@ app.get("/api/health", (req, res) => {
 ------------------------------------ */
 app.use((req, res) => {
   res.status(404).json({
+    error: "NOT_FOUND",
     message: `Ruta no encontrada: ${req.method} ${req.originalUrl}`,
   });
 });
@@ -84,8 +121,24 @@ app.use((req, res) => {
 ------------------------------------ */
 app.use((err, req, res, next) => {
   console.error("🔥 Error:", err);
-  res.status(err.status || 500).json({
-    error: err.message || "Error interno del servidor",
+
+  // Si alguien lanzó un objeto con status
+  const status = err.status || err.statusCode || 500;
+
+  // Mensaje seguro
+  const message =
+    status >= 500
+      ? "Error interno del servidor"
+      : err.message || "Error";
+
+  res.status(status).json({
+    error: status >= 500 ? "INTERNAL_ERROR" : "REQUEST_ERROR",
+    message,
+    // En dev es útil ver más detalle; en prod no
+    ...(process.env.NODE_ENV !== "production" && {
+      detail: err.message,
+      stack: err.stack,
+    }),
   });
 });
 
@@ -94,4 +147,5 @@ app.use((err, req, res, next) => {
 ------------------------------------ */
 app.listen(PORT, () => {
   console.log(`🚀 TUAL backend corriendo en http://localhost:${PORT}`);
+  console.log(`🌐 CORS origin permitido: ${CLIENT_URL}`);
 });
