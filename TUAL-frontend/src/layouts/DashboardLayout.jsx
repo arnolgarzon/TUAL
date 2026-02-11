@@ -17,6 +17,7 @@ import {
   ShieldAlert,
   Menu,
   X,
+  MessageCircle,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 
@@ -63,12 +64,23 @@ const sidebarNav = [
       { name: "Nuevo cliente", href: "/dashboard/clientes/crear" },
     ],
   },
+
+  /* 🔐 Seguridad */
   {
     name: "Cambiar contraseña",
     href: "/cambiar-clave",
     icon: KeyRound,
     roles: ["superadmin", "admin_empresa", "empleado"],
   },
+
+  /* 🛟 AYUDA (CHECKLIST SENA) */
+  {
+    name: "Ayuda",
+    href: "/dashboard/ayuda",
+    icon: MessageCircle,
+    roles: ["superadmin", "admin_empresa", "empleado"],
+  },
+
   {
     name: "Configuración",
     href: "/dashboard/configuracion",
@@ -116,7 +128,7 @@ const DashboardLayout = ({ onLogout }) => {
     .filter((item) => item.roles.includes(userRole))
     .filter((item) => {
       if (!mustChangePassword) return true;
-      return ["Inicio", "Cambiar contraseña"].includes(item.name);
+      return ["Inicio", "Cambiar contraseña", "Ayuda"].includes(item.name);
     });
 
   const doLogout = () => {
@@ -164,7 +176,7 @@ const DashboardLayout = ({ onLogout }) => {
                 <div className="flex gap-2">
                   <ShieldAlert className="h-5 w-5" />
                   <p>
-                    Debes cambiar tu contraseña para continuar.
+                    Debes cambiar tu contraseña para continuar usando el sistema.
                   </p>
                 </div>
               </div>

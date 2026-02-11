@@ -40,6 +40,9 @@ import ClienteForm from "./components/ClienteForm";
 /* Superadmin */
 import ClienteGlobalList from "./components/ClienteGlobalList";
 
+/* Ayuda */
+import HelpCenter from "./components/HelpCenter";
+
 /* ==============================
    PROTECCIÓN POR ROL
 ================================*/
@@ -173,6 +176,7 @@ function App() {
           )
         }
       >
+        {/* DASHBOARD */}
         <Route index element={<Dashboard />} />
 
         {/* EMPRESAS */}
@@ -254,6 +258,9 @@ function App() {
             </RoleProtected>
           }
         />
+
+        {/* AYUDA */}
+        <Route path="ayuda" element={<HelpCenter />} />
       </Route>
 
       {/* ==========================
