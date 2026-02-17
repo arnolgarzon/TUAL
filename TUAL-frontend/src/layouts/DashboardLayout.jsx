@@ -14,80 +14,16 @@ import {
   Settings,
   Globe,
   KeyRound,
-  ShieldAlert,
   Menu,
   X,
   MessageCircle,
+  Package,
+  BarChart3,
+  FileText,
+  Receipt,
+  ClipboardList,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
-
-/* ===============================
-   CONFIG SIDEBAR
-================================*/
-const sidebarNav = [
-  {
-    name: "Inicio",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-    roles: ["superadmin", "admin_empresa", "empleado"],
-  },
-  {
-    name: "Empresas",
-    href: "/dashboard/empresas",
-    icon: Briefcase,
-    roles: ["superadmin"],
-  },
-  {
-    name: "Usuarios (Global)",
-    href: "/dashboard/usuarios",
-    icon: Users,
-    roles: ["superadmin"],
-  },
-  {
-    name: "Clientes Global",
-    href: "/dashboard/clientes-global",
-    icon: Globe,
-    roles: ["superadmin"],
-  },
-  {
-    name: "Usuarios internos",
-    href: "/dashboard/usuarios-internos",
-    icon: Users,
-    roles: ["admin_empresa"],
-  },
-  {
-    name: "Clientes",
-    icon: UserCheck,
-    roles: ["admin_empresa", "empleado"],
-    children: [
-      { name: "Listado", href: "/dashboard/clientes" },
-      { name: "Nuevo cliente", href: "/dashboard/clientes/crear" },
-    ],
-  },
-
-  /* 🔐 Seguridad */
-  {
-    name: "Cambiar contraseña",
-    href: "/cambiar-clave",
-    icon: KeyRound,
-    roles: ["superadmin", "admin_empresa", "empleado"],
-  },
-
-  /* 🛟 AYUDA (CHECKLIST SENA) */
-  {
-    name: "Ayuda",
-    href: "/dashboard/ayuda",
-    icon: MessageCircle,
-    roles: ["superadmin", "admin_empresa", "empleado"],
-  },
-
-  {
-    name: "Configuración",
-    href: "/dashboard/configuracion",
-    icon: Settings,
-    roles: ["admin_empresa"],
-  },
-];
 
 const DashboardLayout = ({ onLogout }) => {
   const { usuario, isLoading, logout } = useAuth();
@@ -95,11 +31,45 @@ const DashboardLayout = ({ onLogout }) => {
   const navigate = useNavigate();
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [activeModules, setActiveModules] = useState([]);
 
   const userRole = String(usuario?.rol || "").toLowerCase();
+  const empresaId = usuario?.empresa_id;
+  const empresaNombre = usuario?.empresa_nombre || "Mi Empresa";
+
   const mustChangePassword =
     usuario?.must_change_password === true ||
     usuario?.mustChangePassword === true;
+
+  /* ===============================
+     CARGAR MÓDULOS ACTIVOS
+  ================================*/
+  useEffect(() => {
+    const fetchModules = async () => {
+      try {
+        const res = await fetch(
+          `http://localhost:5000/api/empresa/config/${empresaId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          }
+        );
+
+        const data = await res.json();
+
+        const enabled = (data.modulos || [])
+          .filter((m) => m.enabled)
+          .map((m) => m.modulo.toLowerCase());
+
+        setActiveModules(enabled);
+      } catch (err) {
+        console.error("Error cargando módulos:", err);
+      }
+    };
+
+    if (empresaId) fetchModules();
+  }, [empresaId]);
 
   /* ===============================
      FORZAR CAMBIO DE CLAVE
@@ -124,12 +94,120 @@ const DashboardLayout = ({ onLogout }) => {
 
   if (!usuario) return null;
 
-  const filteredNav = sidebarNav
-    .filter((item) => item.roles.includes(userRole))
-    .filter((item) => {
-      if (!mustChangePassword) return true;
-      return ["Inicio", "Cambiar contraseña", "Ayuda"].includes(item.name);
-    });
+  /* ===============================
+     MENÚ DINÁMICO
+  ================================*/
+  const sidebarNav = [
+    {
+      name: "Inicio",
+      href: "/dashboard",
+      icon: LayoutDashboard,
+      roles: ["superadmin", "admin_empresa", "empleado"],
+    },
+
+    userRole === "superadmin" && {
+      name: "Empresas",
+      href: "/dashboard/empresas",
+      icon: Briefcase,
+      roles: ["superadmin"],
+    },
+
+    userRole === "superadmin" && {
+      name: "Usuarios (Global)",
+      href: "/dashboard/usuarios",
+      icon: Users,
+      roles: ["superadmin"],
+    },
+
+    userRole === "superadmin" && {
+      name: "Clientes Global",
+      href: "/dashboard/clientes-global",
+      icon: Globe,
+      roles: ["superadmin"],
+    },
+
+    activeModules.includes("usuarios") &&
+      userRole === "admin_empresa" && {
+        name: "Usuarios internos",
+        href: "/dashboard/usuarios-internos",
+        icon: Users,
+        roles: ["admin_empresa"],
+      },
+
+    activeModules.includes("clientes") && {
+      name: "Clientes",
+      icon: UserCheck,
+      roles: ["admin_empresa", "empleado"],
+      children: [
+        { name: "Listado", href: "/dashboard/clientes" },
+        { name: "Nuevo cliente", href: "/dashboard/clientes/crear" },
+      ],
+    },
+
+    /* 🔥 NUEVO MÓDULO ORDENES */
+    activeModules.includes("ordenes") && {
+      name: "Órdenes de Trabajo",
+      icon: ClipboardList,
+      roles: ["admin_empresa", "empleado"],
+      children: [
+        { name: "Listado", href: "/dashboard/ordenes" },
+        { name: "Crear orden", href: "/dashboard/ordenes/crear" },
+      ],
+    },
+
+    activeModules.includes("inventario") && {
+      name: "Inventario",
+      href: "/dashboard/inventario",
+      icon: Package,
+      roles: ["admin_empresa"],
+    },
+
+    activeModules.includes("finanzas") && {
+      name: "Finanzas",
+      href: "/dashboard/finanzas",
+      icon: BarChart3,
+      roles: ["admin_empresa"],
+    },
+
+    activeModules.includes("reportes") && {
+      name: "Reportes",
+      href: "/dashboard/reportes",
+      icon: FileText,
+      roles: ["admin_empresa", "superadmin"],
+    },
+
+    activeModules.includes("facturacion") && {
+      name: "Facturación",
+      href: "/dashboard/facturacion",
+      icon: Receipt,
+      roles: ["admin_empresa"],
+    },
+
+    userRole === "admin_empresa" && {
+      name: "Configuración",
+      href: "/dashboard/configuracion",
+      icon: Settings,
+      roles: ["admin_empresa"],
+    },
+
+    {
+      name: "Cambiar contraseña",
+      href: "/cambiar-clave",
+      icon: KeyRound,
+      roles: ["superadmin", "admin_empresa", "empleado"],
+    },
+
+    {
+      name: "Ayuda",
+      href: "/dashboard/ayuda",
+      icon: MessageCircle,
+      roles: ["superadmin", "admin_empresa", "empleado"],
+    },
+  ].filter(Boolean);
+
+  const filteredNav = sidebarNav.filter((item) =>
+    item.roles.includes(userRole)
+  );
 
   const doLogout = () => {
     setMenuOpen(false);
@@ -144,7 +222,6 @@ const DashboardLayout = ({ onLogout }) => {
 
   return (
     <div className="flex h-screen bg-gray-100 overflow-hidden">
-      {/* ================= MOBILE OVERLAY ================= */}
       {menuOpen && (
         <div
           className="fixed inset-0 bg-black/40 z-30 md:hidden"
@@ -152,7 +229,6 @@ const DashboardLayout = ({ onLogout }) => {
         />
       )}
 
-      {/* ================= SIDEBAR ================= */}
       <aside
         className={`fixed md:static z-40 inset-y-0 left-0 w-64 bg-white border-r
         transform transition-transform duration-300
@@ -161,7 +237,7 @@ const DashboardLayout = ({ onLogout }) => {
       >
         <div className="flex flex-col h-full justify-between">
           <div className="p-4">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-2">
               <span className="text-2xl font-bold text-blue-700">TUAL</span>
               <button
                 className="md:hidden"
@@ -171,16 +247,9 @@ const DashboardLayout = ({ onLogout }) => {
               </button>
             </div>
 
-            {mustChangePassword && (
-              <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm">
-                <div className="flex gap-2">
-                  <ShieldAlert className="h-5 w-5" />
-                  <p>
-                    Debes cambiar tu contraseña para continuar usando el sistema.
-                  </p>
-                </div>
-              </div>
-            )}
+            <p className="text-xs text-gray-500 mb-6 truncate">
+              {empresaNombre}
+            </p>
 
             <nav className="space-y-1">
               {filteredNav.map((item) => (
@@ -242,9 +311,7 @@ const DashboardLayout = ({ onLogout }) => {
         </div>
       </aside>
 
-      {/* ================= MAIN ================= */}
       <div className="flex-1 flex flex-col">
-        {/* TOPBAR MOBILE */}
         <header className="md:hidden flex items-center justify-between p-4 bg-white border-b shadow-sm">
           <button onClick={() => setMenuOpen(true)}>
             <Menu />

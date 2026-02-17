@@ -1,39 +1,68 @@
 import { Router } from "express";
 import authMiddleware from "../middleware/authMiddleware.js";
 import { authorizeRoles } from "../middleware/role.middleware.js";
+
 import {
   getEmpresas,
   getEmpresaById,
   createEmpresa,
-  updateEmpresa,
+  updateEmpresaPerfil,
   deleteEmpresa,
+  getEmpresaConfig,
+  toggleModulo,
 } from "../controllers/empresas.controller.js";
 
 const router = Router();
 
-// Protección global del módulo superadmin
+/* ======================================================
+   RUTAS SUPERADMIN
+====================================================== */
 router.use(authMiddleware);
-router.use(authorizeRoles("superadmin"));
 
-const validateIdParam = (req, res, next) => {
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id <= 0) {
-    return res.status(400).json({
-      ok: false,
-      message: "El parámetro id debe ser un número entero positivo",
-      code: "INVALID_ID",
-    });
-  }
-  req.params.id = String(id);
-  return next();
-};
+router.get(
+  "/",
+  authorizeRoles("superadmin"),
+  getEmpresas
+);
 
-// CRUD Empresas (solo superadmin)
-router.get("/", getEmpresas);
-router.post("/", createEmpresa);
+router.post(
+  "/",
+  authorizeRoles("superadmin"),
+  createEmpresa
+);
 
-router.get("/:id", validateIdParam, getEmpresaById);
-router.put("/:id", validateIdParam, updateEmpresa);
-router.delete("/:id", validateIdParam, deleteEmpresa);
+router.get(
+  "/:id",
+  authorizeRoles("superadmin"),
+  getEmpresaById
+);
+
+router.delete(
+  "/:id",
+  authorizeRoles("superadmin"),
+  deleteEmpresa
+);
+
+/* ======================================================
+   CONFIGURACIÓN EMPRESA (ADMIN_EMPRESA)
+====================================================== */
+
+router.get(
+  "/config",
+  authorizeRoles("admin_empresa"),
+  getEmpresaConfig
+);
+
+router.put(
+  "/config/perfil",
+  authorizeRoles("admin_empresa"),
+  updateEmpresaPerfil
+);
+
+router.patch(
+  "/config/modulo",
+  authorizeRoles("admin_empresa"),
+  toggleModulo
+);
 
 export default router;

@@ -18,7 +18,7 @@ import ResetPassword from "./components/ResetPassword";
 import DashboardLayout from "./layouts/DashboardLayout";
 
 /* ==============================
-   MÓDULOS PRIVADOS
+   MÓDULOS PRINCIPALES
 ================================*/
 import Dashboard from "./components/Dashboard";
 
@@ -44,7 +44,20 @@ import ClienteGlobalList from "./components/ClienteGlobalList";
 import HelpCenter from "./components/HelpCenter";
 
 /* ==============================
-   PROTECCIÓN POR ROL
+   NUEVOS MÓDULOS EMPRESARIALES
+================================*/
+import Configuracion from "./components/Configuracion";
+import Inventario from "./components/Inventario";
+import Finanzas from "./components/Finanzas";
+import Reportes from "./components/Reportes";
+import Facturacion from "./components/Facturacion";
+
+/* 🔥 ÓRDENES DE TRABAJO */
+import OrdenTrabajoList from "./components/OrdenTrabajoList";
+import OrdenTrabajoForm from "./components/OrdenTrabajoForm";
+
+/* ==============================
+   PROTECCIÓN DE ROL ROBUSTA
 ================================*/
 const RoleProtected = ({ children, allowedRoles }) => {
   const { usuario, isLoading } = useAuth();
@@ -52,12 +65,17 @@ const RoleProtected = ({ children, allowedRoles }) => {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p>Validando permisos…</p>
+        <p>Validando permisos...</p>
       </div>
     );
   }
 
-  if (usuario && allowedRoles.includes(usuario.rol)) {
+  if (!usuario) return <Navigate to="/login" replace />;
+
+  const userRole = String(usuario.rol || "").toLowerCase();
+  const normalizedAllowed = allowedRoles.map((r) => r.toLowerCase());
+
+  if (normalizedAllowed.includes(userRole)) {
     return children;
   }
 
@@ -70,7 +88,7 @@ function App() {
 
   /* ==============================
      LOGIN / LOGOUT
-  ================================*/
+  ===============================*/
   const handleLogin = (loginResponse) => {
     const normalized = loginResponse?.usuario
       ? {
@@ -105,11 +123,11 @@ function App() {
 
   /* ==============================
      LOADING GLOBAL
-  ================================*/
+  ===============================*/
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p>Verificando sesión…</p>
+        <p>Verificando sesión...</p>
       </div>
     );
   }
@@ -118,7 +136,7 @@ function App() {
     <Routes>
       {/* ==========================
           RUTAS PÚBLICAS
-      ============================*/}
+      ===========================*/}
       <Route
         path="/"
         element={usuario ? <Navigate to="/dashboard" replace /> : <Home />}
@@ -149,13 +167,12 @@ function App() {
         }
       />
 
-      {/* 🔐 RECUPERACIÓN DE CONTRASEÑA */}
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-clave/:token" element={<ResetPassword />} />
 
       {/* ==========================
-          PRIVADA SIN LAYOUT
-      ============================*/}
+          CAMBIO DE CLAVE
+      ===========================*/}
       <Route
         path="/cambiar-clave"
         element={
@@ -164,8 +181,8 @@ function App() {
       />
 
       {/* ==========================
-          PRIVADAS CON LAYOUT
-      ============================*/}
+          DASHBOARD PRIVADO
+      ===========================*/}
       <Route
         path="/dashboard"
         element={
@@ -176,10 +193,10 @@ function App() {
           )
         }
       >
-        {/* DASHBOARD */}
+        {/* Dashboard principal */}
         <Route index element={<Dashboard />} />
 
-        {/* EMPRESAS */}
+        {/* ================= EMPRESAS ================= */}
         <Route
           path="empresas"
           element={
@@ -197,7 +214,7 @@ function App() {
           }
         />
 
-        {/* USUARIOS */}
+        {/* ================= USUARIOS ================= */}
         <Route
           path="usuarios"
           element={
@@ -206,6 +223,7 @@ function App() {
             </RoleProtected>
           }
         />
+
         <Route
           path="usuarios-internos"
           element={
@@ -214,6 +232,7 @@ function App() {
             </RoleProtected>
           }
         />
+
         <Route
           path="usuarios/crear"
           element={
@@ -223,7 +242,7 @@ function App() {
           }
         />
 
-        {/* CLIENTES */}
+        {/* ================= CLIENTES ================= */}
         <Route
           path="clientes"
           element={
@@ -232,6 +251,7 @@ function App() {
             </RoleProtected>
           }
         />
+
         <Route
           path="clientes/crear"
           element={
@@ -240,6 +260,7 @@ function App() {
             </RoleProtected>
           }
         />
+
         <Route
           path="clientes/:id"
           element={
@@ -249,7 +270,6 @@ function App() {
           }
         />
 
-        {/* CLIENTES GLOBAL */}
         <Route
           path="clientes-global"
           element={
@@ -259,14 +279,95 @@ function App() {
           }
         />
 
-        {/* AYUDA */}
+        {/* ================= ÓRDENES DE TRABAJO ================= */}
+        <Route
+          path="ordenes"
+          element={
+            <RoleProtected allowedRoles={["admin_empresa", "empleado"]}>
+              <OrdenTrabajoList />
+            </RoleProtected>
+          }
+        />
+
+        <Route
+          path="ordenes/crear"
+          element={
+            <RoleProtected allowedRoles={["admin_empresa"]}>
+              <OrdenTrabajoForm />
+            </RoleProtected>
+          }
+        />
+
+        <Route
+          path="ordenes/:id"
+          element={
+            <RoleProtected allowedRoles={["admin_empresa"]}>
+              <OrdenTrabajoForm isEdit />
+            </RoleProtected>
+          }
+        />
+
+        {/* ================= MÓDULOS EMPRESARIALES ================= */}
+        <Route
+          path="configuracion"
+          element={
+            <RoleProtected allowedRoles={["admin_empresa", "superadmin"]}>
+              <Configuracion />
+            </RoleProtected>
+          }
+        />
+
+        <Route
+          path="inventario"
+          element={
+            <RoleProtected allowedRoles={["admin_empresa"]}>
+              <Inventario />
+            </RoleProtected>
+          }
+        />
+
+        <Route
+          path="finanzas"
+          element={
+            <RoleProtected allowedRoles={["admin_empresa"]}>
+              <Finanzas />
+            </RoleProtected>
+          }
+        />
+
+        <Route
+          path="reportes"
+          element={
+            <RoleProtected allowedRoles={["admin_empresa", "superadmin"]}>
+              <Reportes />
+            </RoleProtected>
+          }
+        />
+
+        <Route
+          path="facturacion"
+          element={
+            <RoleProtected allowedRoles={["admin_empresa"]}>
+              <Facturacion />
+            </RoleProtected>
+          }
+        />
+
+        {/* ================= AYUDA ================= */}
         <Route path="ayuda" element={<HelpCenter />} />
       </Route>
 
-      {/* ==========================
-          FALLBACK
-      ============================*/}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      {/* ================= FALLBACK INTELIGENTE ================= */}
+      <Route
+        path="*"
+        element={
+          usuario ? (
+            <Navigate to="/dashboard" replace />
+          ) : (
+            <Navigate to="/" replace />
+          )
+        }
+      />
     </Routes>
   );
 }
