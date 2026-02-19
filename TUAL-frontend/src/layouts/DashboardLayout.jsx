@@ -7,23 +7,22 @@ import {
 } from "react-router-dom";
 import {
   Briefcase,
-  Users,
   LogOut,
   LayoutDashboard,
   UserCheck,
   Settings,
-  Globe,
-  KeyRound,
   Menu,
   X,
   MessageCircle,
   Package,
   BarChart3,
-  FileText,
-  Receipt,
   ClipboardList,
+  ChevronDown,
+  Users,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 const DashboardLayout = ({ onLogout }) => {
   const { usuario, isLoading, logout } = useAuth();
@@ -32,9 +31,9 @@ const DashboardLayout = ({ onLogout }) => {
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeModules, setActiveModules] = useState([]);
+  const [openSubmenu, setOpenSubmenu] = useState(null);
 
   const userRole = String(usuario?.rol || "").toLowerCase();
-  const empresaId = usuario?.empresa_id;
   const empresaNombre = usuario?.empresa_nombre || "Mi Empresa";
 
   const mustChangePassword =
@@ -47,42 +46,53 @@ const DashboardLayout = ({ onLogout }) => {
   useEffect(() => {
     const fetchModules = async () => {
       try {
-        const res = await fetch(
-          `http://localhost:5000/api/empresa/config/${empresaId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
-          }
-        );
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        const res = await fetch(`${API_URL}/api/empresa/config`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!res.ok) throw new Error("Error cargando configuración");
 
         const data = await res.json();
 
         const enabled = (data.modulos || [])
-          .filter((m) => m.enabled)
+          .filter((m) => m.enabled === true)
           .map((m) => m.modulo.toLowerCase());
 
         setActiveModules(enabled);
       } catch (err) {
         console.error("Error cargando módulos:", err);
+        setActiveModules([]);
       }
     };
 
-    if (empresaId) fetchModules();
-  }, [empresaId]);
+    if (usuario) fetchModules();
+  }, [usuario]);
 
   /* ===============================
      FORZAR CAMBIO DE CLAVE
+     (Ahora redirige solo a Configuración)
   ================================*/
   useEffect(() => {
     if (
       !isLoading &&
       mustChangePassword &&
-      location.pathname !== "/cambiar-clave"
+      location.pathname !== "/dashboard/configuracion"
     ) {
-      navigate("/cambiar-clave", { replace: true });
+      navigate("/dashboard/configuracion", { replace: true });
     }
   }, [isLoading, mustChangePassword, location.pathname, navigate]);
+
+  /* ===============================
+     ABRIR SUBMENÚ AUTOMÁTICAMENTE
+  ================================*/
+  useEffect(() => {
+    if (location.pathname.startsWith("/dashboard/configuracion")) {
+      setOpenSubmenu("Configuración");
+    }
+  }, [location.pathname]);
 
   if (isLoading) {
     return (
@@ -112,47 +122,25 @@ const DashboardLayout = ({ onLogout }) => {
       roles: ["superadmin"],
     },
 
-    userRole === "superadmin" && {
-      name: "Usuarios (Global)",
-      href: "/dashboard/usuarios",
-      icon: Users,
-      roles: ["superadmin"],
-    },
-
-    userRole === "superadmin" && {
-      name: "Clientes Global",
-      href: "/dashboard/clientes-global",
-      icon: Globe,
-      roles: ["superadmin"],
-    },
-
-    activeModules.includes("usuarios") &&
-      userRole === "admin_empresa" && {
-        name: "Usuarios internos",
-        href: "/dashboard/usuarios-internos",
-        icon: Users,
-        roles: ["admin_empresa"],
-      },
-
     activeModules.includes("clientes") && {
       name: "Clientes",
+      href: "/dashboard/clientes",
       icon: UserCheck,
       roles: ["admin_empresa", "empleado"],
-      children: [
-        { name: "Listado", href: "/dashboard/clientes" },
-        { name: "Nuevo cliente", href: "/dashboard/clientes/crear" },
-      ],
     },
 
-    /* 🔥 NUEVO MÓDULO ORDENES */
+    activeModules.includes("usuarios") && {
+      name: "Usuarios",
+      href: "/dashboard/usuarios",
+      icon: Users,
+      roles: ["admin_empresa"],
+    },
+
     activeModules.includes("ordenes") && {
-      name: "Órdenes de Trabajo",
+      name: "Órdenes",
+      href: "/dashboard/ordenes",
       icon: ClipboardList,
       roles: ["admin_empresa", "empleado"],
-      children: [
-        { name: "Listado", href: "/dashboard/ordenes" },
-        { name: "Crear orden", href: "/dashboard/ordenes/crear" },
-      ],
     },
 
     activeModules.includes("inventario") && {
@@ -169,32 +157,16 @@ const DashboardLayout = ({ onLogout }) => {
       roles: ["admin_empresa"],
     },
 
-    activeModules.includes("reportes") && {
-      name: "Reportes",
-      href: "/dashboard/reportes",
-      icon: FileText,
-      roles: ["admin_empresa", "superadmin"],
-    },
-
-    activeModules.includes("facturacion") && {
-      name: "Facturación",
-      href: "/dashboard/facturacion",
-      icon: Receipt,
-      roles: ["admin_empresa"],
-    },
-
-    userRole === "admin_empresa" && {
+    {
       name: "Configuración",
-      href: "/dashboard/configuracion",
       icon: Settings,
       roles: ["admin_empresa"],
-    },
-
-    {
-      name: "Cambiar contraseña",
-      href: "/cambiar-clave",
-      icon: KeyRound,
-      roles: ["superadmin", "admin_empresa", "empleado"],
+      children: [
+        {
+          name: "General",
+          href: "/dashboard/configuracion",
+        },
+      ],
     },
 
     {
@@ -209,19 +181,34 @@ const DashboardLayout = ({ onLogout }) => {
     item.roles.includes(userRole)
   );
 
+  /* ===============================
+     TÍTULO DINÁMICO MEJORADO
+  ================================*/
+  const activeTitle = (() => {
+    for (const item of filteredNav) {
+      if (item.href && location.pathname.startsWith(item.href)) {
+        return item.name;
+      }
+      if (item.children) {
+        for (const sub of item.children) {
+          if (location.pathname.startsWith(sub.href)) {
+            return item.name;
+          }
+        }
+      }
+    }
+    return "TUAL";
+  })();
+
   const doLogout = () => {
     setMenuOpen(false);
     if (onLogout) return onLogout();
     logout();
   };
 
-  const isActive = (href) =>
-    href === "/dashboard"
-      ? location.pathname === href
-      : location.pathname.startsWith(href);
-
   return (
     <div className="flex h-screen bg-gray-100 overflow-hidden">
+
       {menuOpen && (
         <div
           className="fixed inset-0 bg-black/40 z-30 md:hidden"
@@ -236,9 +223,13 @@ const DashboardLayout = ({ onLogout }) => {
         md:translate-x-0`}
       >
         <div className="flex flex-col h-full justify-between">
-          <div className="p-4">
+
+          <div className="p-4 overflow-y-auto">
+
             <div className="flex items-center justify-between mb-2">
-              <span className="text-2xl font-bold text-blue-700">TUAL</span>
+              <span className="text-2xl font-bold text-blue-700">
+                TUAL
+              </span>
               <button
                 className="md:hidden"
                 onClick={() => setMenuOpen(false)}
@@ -254,16 +245,19 @@ const DashboardLayout = ({ onLogout }) => {
             <nav className="space-y-1">
               {filteredNav.map((item) => (
                 <div key={item.name}>
+
                   {item.href && (
                     <NavLink
                       to={item.href}
                       onClick={() => setMenuOpen(false)}
-                      className={`flex items-center px-3 py-2 rounded-lg text-sm font-medium transition
+                      className={({ isActive }) =>
+                        `flex items-center px-3 py-2 rounded-lg text-sm font-medium transition
                         ${
-                          isActive(item.href)
-                            ? "bg-blue-100 text-blue-700"
+                          isActive
+                            ? "bg-blue-600 text-white shadow"
                             : "text-gray-600 hover:bg-gray-100"
-                        }`}
+                        }`
+                      }
                     >
                       <item.icon className="h-5 w-5 mr-3" />
                       {item.name}
@@ -271,23 +265,48 @@ const DashboardLayout = ({ onLogout }) => {
                   )}
 
                   {item.children && (
-                    <div className="ml-6 mt-2 space-y-1">
-                      {item.children.map((sub) => (
-                        <NavLink
-                          key={sub.href}
-                          to={sub.href}
-                          onClick={() => setMenuOpen(false)}
-                          className={`block px-3 py-1.5 rounded-md text-sm
-                            ${
-                              isActive(sub.href)
-                                ? "bg-blue-50 text-blue-700"
-                                : "text-gray-600 hover:bg-gray-100"
-                            }`}
-                        >
-                          {sub.name}
-                        </NavLink>
-                      ))}
-                    </div>
+                    <>
+                      <button
+                        onClick={() =>
+                          setOpenSubmenu(
+                            openSubmenu === item.name ? null : item.name
+                          )
+                        }
+                        className="flex items-center justify-between w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg"
+                      >
+                        <div className="flex items-center">
+                          <item.icon className="h-5 w-5 mr-3" />
+                          {item.name}
+                        </div>
+                        <ChevronDown
+                          className={`transition ${
+                            openSubmenu === item.name ? "rotate-180" : ""
+                          }`}
+                        />
+                      </button>
+
+                      {openSubmenu === item.name && (
+                        <div className="ml-8 mt-1 space-y-1">
+                          {item.children.map((sub) => (
+                            <NavLink
+                              key={sub.href}
+                              to={sub.href}
+                              onClick={() => setMenuOpen(false)}
+                              className={({ isActive }) =>
+                                `block px-3 py-1.5 rounded-md text-sm
+                                ${
+                                  isActive
+                                    ? "bg-blue-100 text-blue-700"
+                                    : "text-gray-600 hover:bg-gray-100"
+                                }`
+                              }
+                            >
+                              {sub.name}
+                            </NavLink>
+                          ))}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               ))}
@@ -298,13 +317,14 @@ const DashboardLayout = ({ onLogout }) => {
             <p className="font-semibold truncate">
               {usuario.nombre || usuario.email}
             </p>
-            <p className="text-xs text-blue-600 capitalize">{userRole}</p>
+            <p className="text-xs text-blue-600 capitalize">
+              {userRole}
+            </p>
 
             <button
               onClick={doLogout}
-              className="flex items-center mt-3 text-red-600 hover:text-red-800 text-sm"
+              className="w-full mt-4 py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 text-sm font-medium transition"
             >
-              <LogOut className="h-4 w-4 mr-2" />
               Cerrar sesión
             </button>
           </div>
@@ -312,11 +332,14 @@ const DashboardLayout = ({ onLogout }) => {
       </aside>
 
       <div className="flex-1 flex flex-col">
+
         <header className="md:hidden flex items-center justify-between p-4 bg-white border-b shadow-sm">
           <button onClick={() => setMenuOpen(true)}>
             <Menu />
           </button>
-          <span className="font-bold text-blue-700">TUAL</span>
+          <span className="font-bold text-blue-700 truncate">
+            {activeTitle}
+          </span>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 sm:p-6">
